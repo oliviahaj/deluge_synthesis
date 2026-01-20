@@ -1,0 +1,51 @@
+---
+title: "anpp_extraction_KVC"
+author: "Kathy Condon"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(googledrive)
+library(broom)
+library(corrplot)
+
+theme_set(theme_bw(12))
+
+```
+
+## Set file directories - local
+```{r}
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge","data"), showWarnings = F)
+dir.create(file.path("deluge","data","R_exports"))
+```
+
+# Read in ANPP, precip, and trt info
+```{r Siggers CCE}
+#### pull data from Google Drive to local files ####
+# fi.name<-"CCE_ANPP_2025_R.csv"
+# fi.name<-"CCE_VWC_Year2.csv"
+
+googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p")) %>% 
+  dplyr::filter(name == fi.name) %>% 
+  googledrive::drive_download(file = .$id, overwrite = T,
+                              path = file.path("deluge", 'data', .$name))
+
+#### Read data from local files ####
+CCE_anpp<-read.csv("deluge/data/CCE_ANPP_2025_R.csv")
+str(CCE_anpp)
+
+CCE_VWC<-read.csv("deluge/data/CCE_VWC_Year2.csv")
+str(CCE_VWC)
+```
+
+```{r Condon Ecosphere}
+
+
+
+```
+
+
+
