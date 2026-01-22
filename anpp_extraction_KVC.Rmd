@@ -1,0 +1,121 @@
+---
+title: "anpp_extraction_KVC"
+author: "Kathy Condon"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(googledrive)
+library(broom)
+library(corrplot)
+
+theme_set(theme_bw(12))
+
+```
+
+## Set file directories - local
+```{r}
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge","data"), showWarnings = F)
+dir.create(file.path("deluge","data","R_exports"))
+```
+
+# Read in ANPP, precip, and trt info
+```{r Siggers CCE pull}
+#### pull data from Google Drive to local files - one at a time ####
+# fi.name<-"CCE_ANPP_2025_R.csv"
+# fi.name<-"CCE_VWC_Year2.csv"
+fi.name<-"CCE_GCC_updated.csv"
+
+googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p")) %>% 
+  dplyr::filter(name == fi.name) %>% 
+  googledrive::drive_download(file = .$id, overwrite = T,
+                              path = file.path("deluge", 'data', .$name))
+```
+
+```{r Siggers CEE data}
+#### Read data from local files ####
+CCE_anpp<-read.csv("deluge/data/CCE_ANPP_2025_R.csv")%>%
+  rename(perc_Cactus=Cactus_.,
+         stalks=Bouteloua_gracilis_stalks)%>%
+  mutate(C3_grass=(C3_g*10),
+         C4=(C4_g*10),
+         FORB=(Forb_g*10),
+         TOTAL=Total_g_m)%>%
+  select(Year,Block,Plot,Treatment,Replicate,C3_grass,C4,FORB,TOTAL,perc_Cactus,stalks)
+  
+str(CCE_anpp)
+
+CCE_VWC<-read.csv("deluge/data/CCE_VWC_Year2.csv")%>%
+  rename(Plot=Plot_.,
+         TRT=Trt_.,
+         VWC=X20_cm_VWC_.,
+         Notes=X)%>%
+  mutate(new.Date=as.Date(Date,format="%m/%d/%y"))%>%
+  select(Plot,TRT,new.Date,VWC,Notes)
+
+str(CCE_VWC)
+
+CCE_GCC<-read.csv("deluge/data/CCE_GCC_updated.csv")%>%
+  rename(Plot=plot,
+         Block=block,
+         TRT=treatment,
+         GCC=GCC_mean)%>%
+  mutate(new.Date=as.Date(Date,format="%m/%d/%y"))%>%
+  filter(!DoY=="232")%>%
+  select(Plot,Block,TRT,new.Date,GCC,file_name)
+  
+str(CCE_GCC)
+
+#### pull treatments and rename ####
+CCE_trts<-CCE_VWC%>%
+  filter(new.Date=="2025-05-23")%>%
+  select(Plot,TRT)%>%
+  mutate(TRT_name=case_when(
+    TRT == "Drought" ~ "Dr",
+    TRT == "Drought-Deluge" ~ "Dr_Del",
+    TRT == "Control" ~ "A",
+    TRT == "Deluge" ~ "Del"))%>%
+  select(Plot,TRT_name)
+
+
+#### add treatments names to all datasets ####
+Siggers_ANPP<-merge(CCE_anpp,CCE_trts,by="Plot")
+str(Siggers_ANPP)
+
+Siggers_VWC<-merge(CCE_VWC,CCE_trts,by="Plot")
+str(Siggers_VWC)
+
+Siggers_GCC<-merge(CCE_GCC,CCE_trts,by="Plot")
+str(Siggers_GCC)
+
+#### Seasonal averages ####
+Siggers_ANPP_plots_avs<-Siggers_ANPP%>%
+  pivot_longer(cols=C3_grass:TOTAL,names_to="funct_group",values_to="gm2")%>%
+  group_by(Year,Plot,Block,TRT_name,funct_group)%>%
+  dplyr::summarise(
+    n.its=n(),
+    plot.anpp=mean(gm2))
+
+Siggers_ANPP_avs<-Siggers_ANPP_plots_avs%>%
+  group_by(Year,TRT_name,funct_group)%>%
+  dplyr::summarise(
+    n.plots=n(),
+    ANPP.av=mean(plot.anpp),
+    ANPP.sd=sd(plot.anpp),
+    ANPP.SE=ANPP.sd/sqrt(n.plots))
+
+filter(Siggers_ANPP_avs,funct_group=="TOTAL")
+
+```
+
+```{r Condon Ecosphere}
+
+
+
+```
+
+
+
