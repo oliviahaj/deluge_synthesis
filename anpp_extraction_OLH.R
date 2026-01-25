@@ -116,3 +116,28 @@ hoover2022.trt.sum <- hoover2022 %>%
   summarize(
     mean_ANPP = mean(anpp, na.rm = TRUE), se_ANPP = sd(anpp) / sqrt(length(anpp)),
     mean_BNPP = mean(bnpp, na.rm = TRUE), se_BNPP = sd(bnpp) / sqrt(length(bnpp)))
+
+
+
+
+###Felton et al. 2019
+#read in productivity data
+file2<-'Felton2019_sgs_ANPP.csv'
+googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p")) %>% 
+  dplyr::filter(name == file2) %>% 
+  googledrive::drive_download(file = .$id, overwrite = T,
+                              path = file.path("deluge", 'data', .$name))
+
+## Calculate treatment level means
+felton2019<- read.csv(file = file.path("deluge", 'data', file2))
+str(felton2019)
+
+felton2019.plot.sum <- felton2019 %>%
+  # first grouping by plot
+  group_by(Plot, Block, percentile) %>%
+  summarize(mean = mean(x.100, na.rm = T))%>%
+  ungroup()
+felton2019.trt.sum <- felton2019.plot.sum %>%
+  group_by(percentile)%>%
+  summarize(mean_ANPP = mean(mean, na.rm = TRUE), se_ANPP = sd(mean) / sqrt(length(mean)))
+
