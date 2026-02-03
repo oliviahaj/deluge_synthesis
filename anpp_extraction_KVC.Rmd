@@ -27,7 +27,7 @@ dir.create(file.path("deluge","data","R_exports"))
 #### pull data from Google Drive to local files - one at a time ####
 # fi.name<-"CCE_ANPP_2025_R.csv"
 # fi.name<-"CCE_VWC_Year2.csv"
-fi.name<-"CCE_GCC_updated.csv"
+# fi.name<-"CCE_GCC_updated.csv"
 
 googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p")) %>% 
   dplyr::filter(name == fi.name) %>% 
@@ -112,10 +112,150 @@ filter(Siggers_ANPP_avs,funct_group=="TOTAL")
 ```
 
 ```{r Condon Ecosphere}
+#### pull data from local file ####
+Con_21<-read.csv("/Users/Kathy/Desktop/SGS Research/SGS Legacies/Ecosphere MS Submission/Analysis/Spring Legacies Ecosphere Submission/SGS_SLs_ANPP_all.csv")
+str(Con_21)
+
+#### Seasonal averages ####
+Con_21_ANPP_avs<-Con_21%>%
+  group_by(Clip_Type,TRT)%>%
+  dplyr::summarise(
+    n.plots=n(),
+    ANPP.av=mean(ANPP),
+    ANPP.sd=sd(ANPP),
+    ANPP.SE=ANPP.sd/sqrt(n.plots))
+
+# view(Con_21_ANPP_avs)
+
+```
+
+```{r Tooley DRE}
+fi.name<-"Tooley_DRE_ANPP.csv"
+
+googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p")) %>% 
+  dplyr::filter(name == fi.name) %>% 
+  googledrive::drive_download(file = .$id, overwrite = T,
+                              path = file.path("deluge", 'data', .$name))
+
+Tooley_DRE<-read.csv("deluge/data/Tooley_DRE_ANPP.csv")
+str(Tooley_DRE)
+
+#### Seasonal averages ####
+Tooley_ANPP<-Tooley_DRE%>%
+  pivot_longer(cols=c(GrassC3:ANPP),names_to="funct_group",values_to="not_scaled")%>%
+  mutate(gm2=not_scaled*10)%>%
+  group_by(Year,Treatment,WaterTreatment,Plot,funct_group)%>%
+  dplyr::summarise(
+    n.its=n(),
+    plot.anpp=mean(gm2))
+
+Tooley_ANPP_avs<-Tooley_ANPP%>%
+  group_by(Year,Treatment,WaterTreatment,funct_group)%>%
+  dplyr::summarise(
+    n.plots=n(),
+    ANPP.av=mean(plot.anpp),
+    ANPP.sd=sd(plot.anpp),
+    ANPP.SE=ANPP.sd/sqrt(n.plots))%>%
+  filter(funct_group=="ANPP")
+
+```
+
+```{r All Papers ANPP from TRT Table file}
+fi.name<-"treatment_table_copy.csv"
+
+googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p")) %>% 
+  dplyr::filter(name == fi.name) %>% 
+  googledrive::drive_download(file = .$id, overwrite = T,
+                              path = file.path("deluge", 'data', .$name))
+
+all_trts<-read.csv("deluge/data/treatment_table_copy.csv")%>%
+  select(Study,Treatment,Summary,study_year,n,Deluge_Control,Deluge,Deluge_size_mm,Deluge_month,mean_ANPP,se_ANPP)
+
+
+str(all_trts)
+view(all_trts)
+
+### clean table ###
+fi.name<-"DelSize_ANPPResp.csv"
+
+googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p")) %>% 
+  dplyr::filter(name == fi.name) %>% 
+  googledrive::drive_download(file = .$id, overwrite = T,
+                              path = file.path("deluge", 'data', .$name))
+
+all_trts<-read.csv("deluge/data/DelSize_ANPPResp.csv")%>%
+  mutate(other_group=factor(other_group))%>%
+  mutate(amb_con=factor(amb_con))
+
+str(all_trts)
+```
+
+```{r ANPP response with deluge size graph}
+str(all_trts)
+
+# add theme 
+library(knitr)
+library(tidyverse)
+library(dplyr)
+library(car)
+library(emmeans)
+library(multcomp)
+library(lmerTest)
+library(lme4)
+library(RColorBrewer)
+library(rstatix)
+library(tidyr)
+library(ggpubr)
+library(lubridate)
+library(ggtext)
+library(ggh4x)
+library(ggpattern)
+library(data.table)
+library(MuMIn)
+library(scales)
+library(performance)
+
+plot_theme<-theme_classic()+
+  theme(
+    strip.background=element_blank(),
+    strip.text.x=element_text(size=12,
+                              hjust=0,
+                              face="bold",colour="black"),
+    strip.text.y=element_text(size=12,
+                              hjust=0,
+                              face="bold",colour="black"),
+    panel.background=element_rect(fill="transparent"),
+    panel.border=element_rect(fill="transparent",color="black",
+                              linewidth=0.5),
+    plot.background=element_rect(fill="transparent",color=NA),
+    legend.background=element_rect(fill="transparent"),
+    legend.position="right",
+    # legend.title=element_text(size=16,face="bold"),
+    legend.text=element_text(size=12),
+    # axis.line.x=element_line(linewidth=1,color="black"),
+    axis.line.x=element_blank(),
+    axis.line.y=element_blank(),
+    axis.ticks=element_line(linewidth=0.5,color="black"),
+    axis.ticks.length=unit(-0.05,"in"),
+    axis.title = element_text(size=12,
+                              colour="black",face="bold"),
+    axis.text=element_text(size=10,colour="black"),
+    axis.text.x=element_text(angle=0,hjust=0.5,colour="black"),
+    axis.text.y=element_text(colour="black"),
+    plot.title=element_text(size=12),
+    strip.placement="outside")
+
+
+perc.diff<-ggplot(all_trts,aes(x=deluge_mm,y=perc_diff,color=other_group,shape=amb_con,label=Study))+
+  geom_point(size=3)+
+  # geom_line(aes(linetype=other_group))+
+  geom_text(hjust=1,vjust=-0.6)+
+  labs(x="Deluge size (mm)",y="ANPP percent difference")+
+  theme_classic()+
+  plot_theme
+
+perc.diff
 
 
 
 ```
-
-
-
