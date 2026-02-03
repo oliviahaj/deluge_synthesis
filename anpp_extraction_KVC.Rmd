@@ -256,6 +256,60 @@ perc.diff<-ggplot(all_trts,aes(x=deluge_mm,y=perc_diff,color=other_group,shape=a
 
 perc.diff
 
+```
+
+```{r Siggers GCC}
+fi.name<-"CCE_GCC_updated.csv"
+
+googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p")) %>% 
+  dplyr::filter(name == fi.name) %>% 
+  googledrive::drive_download(file = .$id, overwrite = T,
+                              path = file.path("deluge", 'data', .$name))
+
+CCE_gcc<-read.csv("deluge/data/CCE_GCC_updated.csv")
+
+str(CCE_gcc)
+
+
+gcc.avs<-CCE_gcc%>%
+  mutate(new.Date=as.Date(Date,format="%m/%d/%y"))%>%
+  group_by(new.Date,treatment)%>%
+  dplyr::summarise(
+    n.plots=n(),
+    gcc.av=mean(GCC_mean),
+    gcc.sd=sd(GCC_mean),
+    gcc.SE=gcc.sd/sqrt(n.plots))
+
+gcc.qplot.error<-qplot(x=new.Date,y=gcc.av,colour=factor(treatment),group=factor(treatment),data=gcc.avs)+
+  geom_point(size=3)+
+  geom_line(linewidth=1.5)+
+  geom_errorbar(aes(ymin=gcc.av-gcc.SE, ymax=gcc.av+gcc.SE), width=0,
+                 position=position_dodge(0.07),size=1.5)
+
+gcc<-gcc.qplot.error+
+  labs(title=" ",x="",y="GCC")+
+  # scale_x_date(date_labels="%B",
+  #              date_breaks  ="1 month",
+  #              limits=as.Date(c('2022-05-20','2022-09-20')))+
+  # scale_color_manual(values=c("darkgoldenrod3","aquamarine3"),name=c("Treatment"),labels=c("Ambient","Wet"))+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text=element_text(size=35,color="black"),
+        axis.title=element_text(size=40,color="black"),
+        axis.ticks=element_line(color="black",linewidth=3),
+        axis.line=element_line(color="black",linewidth=1.5),
+        panel.background=element_rect(fill="transparent"),
+        plot.background=element_rect(fill="transparent",color=NA),
+        legend.position="right",
+        legend.text=element_text(size=35),
+        legend.title=element_text(size=40),
+        legend.background=element_rect(fill="transparent"))
+
+gcc
 
 
 ```
+
+
+
+
