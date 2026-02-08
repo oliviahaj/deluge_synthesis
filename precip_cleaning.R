@@ -238,3 +238,12 @@ drive_upload(
   path = file.path("deluge", "precip_data"),
   name = "cper_ppt_data_combined.csv"
 )
+
+
+## some quick visualizations
+ggplot(ppt_sum, aes(year, ann_ppt))+
+  geom_point()+
+  theme_bw()
+ggplot(ppt_sum, aes(year, gs_ppt))+
+  geom_point()+
+  theme_bw()
