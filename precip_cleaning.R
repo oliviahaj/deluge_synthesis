@@ -132,6 +132,7 @@ ppt_clean.2 <- ppt_clean %>%
   mutate(date = as.Date(date, format = "%Y-%m-%d"), 
          year = year(date), 
          month=month(date))%>%
+  mutate(year = ifelse(month > 9, year + 1, year)) %>%
   # summarize by month
   group_by(site, month, year) %>%
   summarize(mo_ppt_mm = sum(ppt.gapfilled.mm))%>%
@@ -147,9 +148,79 @@ ppt_clean.2 <- ppt_clean %>%
 ppt_clean_hq <- ppt_clean.2 %>%
   filter(Pasture == "hq.catch")
 
-## combine wiht the other data
-full_ppt <- rbind(ppt_pre_2017, ppt_clean.2)
+## Most recent cleaned data
+ppt_clean23 <- read.csv("deluge/precip_data/cper_ppt_gapfilled_2023-2025_v1.0.csv")
+str(ppt_clean23)
+
+ppt_clean.25 <- ppt_clean23 %>%
+  mutate(date = as.Date(date, format = "%m/%d/%Y"), 
+         year = year(date), 
+         month=month(date))%>%
+  mutate(year = ifelse(month > 9, year + 1, year)) %>%
+  # summarize by month
+  group_by(site, month, year) %>%
+  summarize(mo_ppt_mm = sum(ppt.gapfilled.mm))%>%
+  # rename
+  rename(Pasture = "site") %>%
+  pivot_wider(
+    names_from = month,
+    values_from = mo_ppt_mm,
+    names_prefix = "m"
+  )
+
+## Merged the cleaned up data if there is overlap
+cleaned_combo <- full_join(ppt_clean.2, ppt_clean.25, by = c("Pasture", "year"))
+
+# make it so just one column for eahc month
+cleaned_combo2 <- cleaned_combo%>%
+  mutate(
+    m1 = coalesce(m1.x, m1.y),
+    m2 = coalesce(m2.x, m2.y),
+    m3 = coalesce(m3.x, m3.y),
+    m4 = coalesce(m4.x, m4.y),
+    m5 = coalesce(m5.x, m5.y),
+    m6 = coalesce(m6.x, m6.y),
+    m7 = coalesce(m7.x, m7.y),
+    m8 = coalesce(m8.x, m8.y),
+    m9 = coalesce(m9.x, m9.y),
+    m10 = coalesce(m10.x, m10.y),
+    m11 = coalesce(m11.x, m11.y),
+    m12 = coalesce(m12.x, m12.y)
+  ) %>%
+  select(Pasture, year, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12)
+
+## combine wiht the other data - another full join to merge data where relevant, will priortize the cleaned dataset
+## in this case though...
+full_ppt <- full_join(ppt_pre_2017, cleaned_combo2, by = c("Pasture", "year"))
+
+# make it so just one column for eahc month
+full_ppt2 <- full_ppt%>%
+  mutate(
+    m1 = coalesce(m1.y, m1.x),
+    m2 = coalesce(m2.y, m2.x),
+    m3 = coalesce(m3.y, m3.x),
+    m4 = coalesce(m4.y, m4.x),
+    m5 = coalesce(m5.y, m5.x),
+    m6 = coalesce(m6.y, m6.x),
+    m7 = coalesce(m7.y, m7.x),
+    m8 = coalesce(m8.y, m8.x),
+    m9 = coalesce(m9.y, m9.x),
+    m10 = coalesce(m10.y, m10.x),
+    m11 = coalesce(m11.y, m11.x),
+    m12 = coalesce(m12.y, m12.x)
+  ) %>%
+  select(Pasture, year, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12)
+
+## Data quality check
+
+
+## Calculate Growing season and annual precipitation
+## remove monthly
+
 full_ppt$gs_ppt <- full_ppt$m5 + full_ppt$m6 + full_ppt$m7 + full_ppt$m8
 full_ppt$ann_ppt <- full_ppt$m1 + full_ppt$m2 + full_ppt$m3 + full_ppt$m4 +
   full_ppt$m5 + full_ppt$m6 + full_ppt$m7 + full_ppt$m8 +
   full_ppt$m9 + full_ppt$m10 + full_ppt$m11 + full_ppt$m12
+
+## Export and write to the drives
+
