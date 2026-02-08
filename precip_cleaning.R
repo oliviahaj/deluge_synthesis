@@ -212,15 +212,29 @@ full_ppt2 <- full_ppt%>%
   select(Pasture, year, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12)
 
 ## Data quality check
+# really it is just September 2015 that is missing in nearly every data
+# goign to replace with the HQ catch can
+library(naniar)
+# Basic missing data visualization
+gg_miss_var(full_ppt2)
 
+full_ppt2$m9 <- ifelse(is.na(full_ppt2$m9), 1.016, full_ppt2$m9)
 
 ## Calculate Growing season and annual precipitation
 ## remove monthly
+full_ppt2$gs_ppt <- full_ppt2$m5 + full_ppt2$m6 + full_ppt2$m7 + full_ppt2$m8
+full_ppt2$ann_ppt <- full_ppt2$m1 + full_ppt2$m2 + full_ppt2$m3 + full_ppt2$m4 +
+  full_ppt2$m5 + full_ppt2$m6 + full_ppt2$m7 + full_ppt2$m8 +
+  full_ppt2$m9 + full_ppt2$m10 + full_ppt2$m11 + full_ppt2$m12
 
-full_ppt$gs_ppt <- full_ppt$m5 + full_ppt$m6 + full_ppt$m7 + full_ppt$m8
-full_ppt$ann_ppt <- full_ppt$m1 + full_ppt$m2 + full_ppt$m3 + full_ppt$m4 +
-  full_ppt$m5 + full_ppt$m6 + full_ppt$m7 + full_ppt$m8 +
-  full_ppt$m9 + full_ppt$m10 + full_ppt$m11 + full_ppt$m12
+ppt_sum <- full_ppt2 %>%
+  select(c("Pasture", "year", "gs_ppt", "ann_ppt"))
 
 ## Export and write to the drives
-
+# Save your dataframe locally first
+write.csv(ppt_sum, "cper_ppt_data_combined.csv", row.names = FALSE)
+drive_upload(
+  media = "cper_ppt_data_combined.csv",
+  path = file.path("deluge", "precip_data"),
+  name = "cper_ppt_data_combined.csv"
+)
