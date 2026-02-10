@@ -233,6 +233,7 @@ ppt_sum <- full_ppt2 %>%
 ## Export and write to the drives
 # Save your dataframe locally first
 write.csv(ppt_sum, "cper_ppt_data_combined.csv", row.names = FALSE)
+
 drive_upload(
   media = "cper_ppt_data_combined.csv",
   path = file.path("deluge", "precip_data"),
