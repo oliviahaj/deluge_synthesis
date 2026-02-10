@@ -20,6 +20,7 @@ theme_set(theme_bw(12))
 dir.create(file.path("deluge"), showWarnings = F)
 dir.create(file.path("deluge","data"), showWarnings = F)
 dir.create(file.path("deluge","data","R_exports"))
+dir.create(file.path("deluge","figures"))
 ```
 
 # Read in ANPP, precip, and trt info
@@ -157,7 +158,7 @@ Tooley_ANPP_avs<-Tooley_ANPP%>%
     ANPP.sd=sd(plot.anpp),
     ANPP.SE=ANPP.sd/sqrt(n.plots))%>%
   filter(funct_group=="ANPP")
-view(Tooley_ANPP_avs)
+# view(Tooley_ANPP_avs)
 ```
 
 ```{r All Papers ANPP from TRT Table file}
@@ -255,6 +256,10 @@ perc.diff<-ggplot(all_trts,aes(x=deluge_mm,y=perc_diff,color=other_group,shape=a
   plot_theme
 
 perc.diff
+
+ggsave(perc.diff,filename="deluge/figures/DelSize_ANPP.pdf")
+
+drive_upload(media="deluge/figures/DelSize_ANPP.pdf",path=file.path("deluge","figures"),name="DelSize_ANPP.pdf")
 
 ```
 
