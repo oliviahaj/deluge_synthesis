@@ -157,7 +157,7 @@ Tooley_ANPP_avs<-Tooley_ANPP%>%
     ANPP.sd=sd(plot.anpp),
     ANPP.SE=ANPP.sd/sqrt(n.plots))%>%
   filter(funct_group=="ANPP")
-
+view(Tooley_ANPP_avs)
 ```
 
 ```{r All Papers ANPP from TRT Table file}
