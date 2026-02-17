@@ -41,6 +41,7 @@ trt_table <- read.csv("deluge/data/treatment_table_copy.csv")
 
 ## work to merge
 str(cper_ppt)
+unique(cper_ppt$Pasture)
 str(trt_table)
 
 # convert cper_ppt to wide format
@@ -51,5 +52,15 @@ cper_ppt_wide <- cper_ppt %>%
            gs_ppt_HQ_yr_round, ann_ppt_HQ_yr_round,gs_ppt_25C, ann_ppt_25C))
 
 
-trt_table.2 <-   
+trt_table.2 <- trt_table %>%
+  select(c(Study, Treatment, study_year, Deluge_size_mm, Deluge_month, precipitation_added, precip_mm_RS)) %>%
+  rename(year = "study_year") %>%
+  mutate(year = as.integer(year)) %>%
+  # get rid of trailing rows 
+  filter(!if_all(everything(), ~ is.na(.) | . == "")) %>%
+  left_join(cper_ppt_wide, by = "year") %>%
+  mutate(DEX_ann = coalesce(ann_ppt_hm.25SE, ann_ppt_25C, ann_ppt_hq.catch, ann_ppt_HQ_yr_round), 
+         DEX_gs = coalesce(gs_ppt_hm.25SE, gs_ppt_25C, gs_ppt_hq.catch, gs_ppt_HQ_yr_round)) 
+
+## Not quite sure how to deal with some of Greg and mine's because water year and the precipitation isn't really quite as relevant
 
