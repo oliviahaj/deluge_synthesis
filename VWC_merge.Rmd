@@ -1,0 +1,112 @@
+---
+title: "VWC Extraction"
+author: "OLH"
+date: "2026-02-2020"
+output: 
+  bookdown::html_document2:
+    code_folding: hide
+    toc: TRUE
+    toc_depth: 4
+    toc_float: TRUE
+    collapsed: TRUE
+    theme: spacelab
+    fig_caption: TRUE
+    number_sections: FALSE
+---
+# Setup
+<style>h1 {font-size: 24pt; } h2 {font-size: 20pt; } h3 {font-size: 18pt; } h4 {font-size: 16pt; } h5 {font-size: 14pt; } h6 {font-size: 12pt; } </style> 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, dpi = 600, progress = FALSE, cache = FALSE, fig.width=5,  fig.height=3.5, fig.align="center")
+
+options(repos = c(CRAN = "http://cran.rstudio.com"))
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, googledrive, supportR, lubridate)
+
+`%!in%` = Negate(`%in%`)
+
+```
+
+# Create Folders on Desktop
+```{r}
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge", 'data'), showWarnings = F)
+dir.create(file.path("deluge", 'data', 'R_exports'), showWarnings = F)
+```
+
+# Download VWC files
+```{r}
+# Identify wanted files
+files_drive <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p")) %>% 
+  dplyr::filter(stringr::str_detect(string = .$name, pattern = "VWC.*\\.csv|\\.csv.*VWC"))
+
+# Did that work?
+files_drive
+
+# Identify local files
+files_local <- dir(path = file.path("deluge", "data"))
+files_local
+
+# Overwrite local data files?
+update <- TRUE
+
+# Identify desired files
+if(update == T) {
+  files_wanted <- files_drive 
+} else {
+  files_wanted <- files_drive %>%
+    dplyr::filter(!name %in% files_local)
+}
+
+# Download them!
+purrr::walk2(.x = files_wanted$id, .y = files_wanted$name,
+             .f = ~ googledrive::drive_download(file = .x, overwrite = T,
+                                                path = file.path("deluge", "data", .y)))
+
+
+```
+
+# Read in all of the data
+```{r}
+
+# Get list of files with VWC in the filename
+vwc_files <- list.files(path = file.path("deluge", "data"), 
+                        pattern = "VWC", 
+                        full.names = TRUE)
+
+# Read each file and assign to a dataframe named after the file
+for(f in vwc_files) {
+  # Extract just the filename without extension as the object name
+  obj_name <- tools::file_path_sans_ext(basename(f))
+  
+  # Read the CSV and assign to an object with that name
+  assign(obj_name, read.csv(f))
+}
+
+```
+
+# Data processing each site
+- Want to get where it is site_id, var, treatment, date, year, doy, value at the plot
+
+## Hajek2024
+```{r}
+hajek2024 <- Hajek2024_VWC %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "Hajek2024", 
+         # add in the variable analyzed
+         Variable = "VWC", 
+         Date = as.Date(Date, format = "%d-%b-%y"), 
+         year = year(Date), 
+         doy = yday(Date), 
+         study_trt = paste(Study_shorthand, Trt, sep="_"))
+  
+
+```
+
+## Hoover et al., 2022
+```{r}
+
+```
+
+
+
