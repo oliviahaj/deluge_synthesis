@@ -257,9 +257,9 @@ perc.diff<-ggplot(all_trts,aes(x=deluge_mm,y=perc_diff,color=other_group,shape=a
 
 perc.diff
 
-ggsave(perc.diff,filename="deluge/figures/DelSize_ANPP.pdf")
+# ggsave(perc.diff,filename="deluge/figures/DelSize_ANPP.pdf")
 
-drive_upload(media="deluge/figures/DelSize_ANPP.pdf",path=file.path("deluge","figures"),name="DelSize_ANPP.pdf")
+# drive_upload(media="deluge/figures/DelSize_ANPP.pdf",path=file.path("deluge","figures"),name="DelSize_ANPP.pdf")
 
 ```
 
