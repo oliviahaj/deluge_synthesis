@@ -1,0 +1,74 @@
+---
+title: "ANPP Data Merging"
+author: "Kathy Condon"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(knitr)
+library(tidyverse)
+library(dplyr)
+library(car)
+library(emmeans)
+library(multcomp)
+library(lmerTest)
+library(lme4)
+library(RColorBrewer)
+library(rstatix)
+library(tidyr)
+library(ggpubr)
+library(lubridate)
+library(ggtext)
+library(ggh4x)
+library(ggpattern)
+library(data.table)
+library(MuMIn)
+library(scales)
+library(performance)
+
+```
+
+## Set file directories - local
+```{r}
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge","data"), showWarnings = F)
+dir.create(file.path("deluge","data","R_exports"))
+dir.create(file.path("deluge","figures"))
+```
+
+# Read in ANPP, precip, and trt info
+```{r Siggers CCE pull}
+#### pull data from Google Drive to local files - one at a time ####
+
+## list all productivity files in drive by name
+prod.files<-c("Linabury_ChANGE_ANPP.csv","CCE_ANPP_2025_R.csv","Condon_SLs_ANPP.csv","Hajek2024_ANPP.csv","Tooley_DRE_ANPP.csv","Post2020_ANPP.csv","Post2020_BNPP.csv","Post2021_ANPP.csv","Post2021_BNPP.csv","Hoover2022_CPER-DEX_Productivity.csv")
+
+## read in drive folder
+drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p"))
+  
+## read in each file
+for (i in prod.files){
+  
+file.name<-drive.files %>% 
+  dplyr::filter(name == i) 
+
+# if-else, to throw error if file name is incorrect or error would otherwise stop loop
+if(nrow(file.name) == 1){
+  googledrive::drive_download(file = .$id, 
+                              overwrite = T,
+                              path = file.path("deluge", 'data', i))
+  
+} else{
+  message("File error - check name or if duplicated:",i)
+  }
+}
+
+
+
+```
+
+
+
