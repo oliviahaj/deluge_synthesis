@@ -46,7 +46,7 @@ CCE_anpp<-read.csv("deluge/data/CCE_ANPP_2025_R.csv")%>%
          FORB=(Forb_g*10),
          TOTAL=Total_g_m)%>%
   select(Year,Block,Plot,Treatment,Replicate,C3_grass,C4,FORB,TOTAL,perc_Cactus,stalks)
-  
+
 str(CCE_anpp)
 
 CCE_VWC<-read.csv("deluge/data/CCE_VWC_Year2.csv")%>%
@@ -314,7 +314,6 @@ gcc
 
 
 ```
-
 
 
 
