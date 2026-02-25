@@ -62,7 +62,7 @@ if(nrow(file.name) == 1){
                               path = file.path("deluge", 'data', i))
   
 } else{
-  message("File error - check name or if duplicated:",i)
+  message("File error - check name or if duplicated: ",i)
   }
 }
 
