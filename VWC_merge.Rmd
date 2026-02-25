@@ -91,22 +91,75 @@ for(f in vwc_files) {
 ## Hajek2024
 ```{r}
 hajek2024 <- Hajek2024_VWC %>%
+  rename(plot = "Plot", 
+         trt = "Trt", 
+         date = "Date") %>%
   # add in the shorthand name
   mutate(Study_shorthand = "Hajek2024", 
          # add in the variable analyzed
          Variable = "VWC", 
-         Date = as.Date(Date, format = "%d-%b-%y"), 
-         year = year(Date), 
-         doy = yday(Date), 
-         study_trt = paste(Study_shorthand, Trt, sep="_"))
+         date = as.Date(date, format = "%d-%b-%y"), 
+         year = year(date), 
+         doy = yday(date), 
+         study_trt = paste(Study_shorthand, trt, sep="_"))
   
-
+str(hajek2024)
 ```
 
 ## Hoover et al., 2022
+- this is actually sentek; need to go back and see if can do non-sentek stuff
 ```{r}
+str(`Hoover2022_CPER-DEX_VWC`)
+hoover2022 <- `Hoover2022_CPER-DEX_VWC` %>%
+  rename(trt = "treatment", 
+         VWC = "vwc") %>%
+    # add in the shorthand name
+  mutate(Study_shorthand = "Hoover2022", 
+         # add in the variable analyzed
+         Variable = "VWC", 
+         Date = as.Date(date, format = "%m/%d%y"), 
+         year = year(Date), 
+         doy = yday(Date), 
+         study_trt = paste(Study_shorthand, trt, sep="_"))
+str(hoover2022)
+```
+## Post2020
+```{r}
+str(Post2020_VWC)
 
+post2020 <- Post2020_VWC %>%
+  rename(plot = "Plot", 
+         trt = "Trt", 
+         date = "Date") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "Post2020", 
+         # add in the variable analyzed
+         Variable = "VWC", 
+         date = as.Date(date, format = "%m/%d/%y"), 
+         year = year(date), 
+         doy = yday(date), 
+         study_trt = paste(Study_shorthand, trt, sep="_"))
+str(post2020)
 ```
 
+## Post 2021
+
+```{r}
+str(Post2021_VWC)
+
+post2021 <- Post2021_VWC %>%
+  rename(plot = "Plot", 
+         trt = "Trt", 
+         date = "Date") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "Post2021", 
+         # add in the variable analyzed
+         Variable = "VWC", 
+         date = as.Date(date, format = "%m/%d/%y"), 
+         year = year(date), 
+         doy = yday(date), 
+         study_trt = paste(Study_shorthand, trt, sep="_"))
+str(post2021)
+```
 
 
