@@ -164,7 +164,7 @@ post2020 <- Post2020_VWC %>%
   mutate(Study_shorthand = "Post2020", 
          # add in the variable analyzed
          Variable = "VWC", 
-         date = as.Date(date, format = "%m/%d/%y"), 
+         date = as.Date(date, format = "%m/%d/%Y"), 
          year = year(date), 
          doy = yday(date), 
          study_trt = paste(Study_shorthand, trt, sep="_"), 
@@ -250,7 +250,7 @@ linabury <- Linabury_ChANGE_VWC %>%
   mutate(Study_shorthand = "Linabury_ChANGE", 
          # add in the variable analyzed
          Variable = "VWC", 
-         date = as.Date(date, format = "%m/%d/%y"), 
+         date = as.Date(date, format = "%m/%d/%Y"), 
          study_trt = paste(Study_shorthand, trt, sep="_")) %>%
   select(-c(X, site, deluge.date.1, deluge.date.2, dom, month, days_since_deluge, experiment, nitrogen))
 
