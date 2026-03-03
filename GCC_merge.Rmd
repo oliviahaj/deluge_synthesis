@@ -141,10 +141,119 @@ post2020 <- Post2020_GCC %>%
   mutate(Study_shorthand = "Post2020", 
          # add in the variable analyzed
          Variable = "GCC", 
-         #date = as.Date(date, format = "%m/%d/%y"), 
+         date = dmy(paste0(date, "-2017")), 
          year = year(date), 
          doy = yday(date), 
          study_trt = paste(Study_shorthand, trt, sep="_"), 
          block = NA)
 str(post2020)
 ```
+## Post 2021
+ 
+```{r}
+str(Post2021_GCC)
+
+post2021 <- Post2021_GCC %>%
+  rename(plot = "Plot", 
+         trt = "Trt", 
+         date = "Date") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "Post2021", 
+         # add in the variable analyzed
+         Variable = "GCC", 
+         date = mdy(paste0(date, "_2018")), 
+         year = year(date), 
+         doy = yday(date), 
+         study_trt = paste(Study_shorthand, trt, sep="_"), 
+         block = NA) %>%
+  select(-Precip)
+str(post2021)
+```
+## CCE
+
+```{r}
+str(CCE_GCC_updated)
+
+cce <- CCE_GCC_updated %>%
+  rename(
+         trt = "treatment", 
+         date = "Date", 
+         GCC = "GCC_mean") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "CCE", 
+         # add in the variable analyzed
+         Variable = "GCC", 
+         date = as.Date(date, format = "%m/%d/%y"), 
+         doy = yday(date), 
+         study_trt = paste(Study_shorthand, trt, sep="_")) %>%
+  select(-c(X.1, X, file_name, month, day, plot_type, nphoto, EGI_mean, ERI_mean, ExGmR, pixel_length, pixel_width, DoY))
+
+str(cce)
+```
+
+## Condon
+
+```{r}
+str(Condon_SLs_GCC)
+
+condon_sl <- Condon_SLs_GCC %>%
+  rename(plot = "Plot", 
+         trt = "NewTrt", 
+         date = "Date") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "Condon_SL", 
+         # add in the variable analyzed
+         Variable = "GCC", 
+         date = as.Date(date, format = "%m/%d/%y"), 
+         year = year(date), 
+         doy = yday(date), 
+         study_trt = paste(Study_shorthand, trt, sep="_"), 
+         block = NA) %>%
+  select(-c(Drop))
+
+str(condon_sl)
+```
+
+## Linabury
+
+```{r}
+str(Linabury_ChANGE_GCC)
+
+linabury <- Linabury_ChANGE_GCC %>%
+  rename( 
+         trt = "treatment", 
+         GCC = "gcc_mean") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "Linabury_ChANGE", 
+         # add in the variable analyzed
+         Variable = "GCC", 
+         date = as.Date(date, format = "%m/%d/%Y"), 
+         study_trt = paste(Study_shorthand, trt, sep="_")) %>%
+  select(-c(X, site, deluge.date.1, deluge.date.2, dom, month, experiment, nitrogen, deluge.date.1.doy, deluge.date.2.doy))
+
+str(linabury)
+```
+
+## combine
+
+```{r}
+combo <- rbind(hajek2024, hoover2022, post2020, post2021, cce, condon_sl, linabury)
+str(combo)
+
+# Export locally
+write.csv(x = combo, row.names = F, na = '',
+          file = file.path("deluge", "data", "R_exports", "GCC_harmomnized.csv"))
+
+# Upload to Drive
+googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "GCC_harmomnized.csv"), overwrite = T,
+                          path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+```
+
+# Quick viz
+```{r}
+ggplot(combo, aes(doy, GCC))+
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~Study_shorthand, scales="free")
+```
+
