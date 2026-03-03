@@ -39,12 +39,12 @@ dir.create(file.path("deluge","data","R_exports"))
 dir.create(file.path("deluge","figures"))
 ```
 
-# Read in ANPP, precip, and trt info
-```{r Siggers CCE pull}
+# Copy in productivity data from Google Drive
+```{r}
 #### pull data from Google Drive to local files - one at a time ####
 
 ## list all productivity files in drive by name
-prod.files<-c("Linabury_ChANGE_ANPP.csv","CCE_ANPP_2025_R.csv","Condon_SLs_ANPP.csv","Hajek2024_ANPP.csv","Tooley_DRE_ANPP.csv","Post2020_ANPP.csv","Post2020_BNPP.csv","Post2021_ANPP.csv","Post2021_BNPP.csv","Hoover2022_CPER-DEX_Productivity.csv")
+prod.files<-c("Linabury_ChANGE_ANPP.csv","CCE_ANPP_2025_R.csv","Condon_SLs_ANPP_byfunctionalgroup.csv","Hajek2024_ANPP.csv","Tooley_DRE_ANPP.csv","Post2020_ANPP.csv","Post2020_BNPP.csv","Post2021_ANPP.csv","Post2021_BNPP.csv","Hoover2022_CPER-DEX_Productivity.csv")
 
 ## read in drive folder
 drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p"))
@@ -57,18 +57,100 @@ file.name<-drive.files %>%
 
 # if-else, to throw error if file name is incorrect or error would otherwise stop loop
 if(nrow(file.name) == 1){
-  googledrive::drive_download(file = .$id, 
+  googledrive::drive_download(file = file.name$id, 
                               overwrite = T,
                               path = file.path("deluge", 'data', i))
   
 } else{
-  message("File error - check name or if duplicated: ",i)
+  message("File error - check name or if duplicated: ", i)
   }
 }
 
+```
+
+# Reformat data to all match
+- Format to site_id, var, treatment, date, year, doy, value at the plot
+
+```{r Linabury_ChANGE}
+lin_CHANGE<-read.csv("deluge/data/Linabury_ChANGE_ANPP.csv")
+str(lin_CHANGE)
+
+lin_CHANGE<-lin_CHANGE%>%
+  rename(total_anpp=anpp)%>%
+  pivot_longer(cols=c(grass_anpp,forb_anpp,total_anpp),names_to="funct_group")
+
+
+head(lin_CHANGE)
 
 
 ```
+
+```{r Siggers_CCE}
+CCE<-read.csv("deluge/data/CCE_ANPP_2025_R.csv")
+head(CCE,5)
+
+siggers_CCE<-CCE%>%
+  rename(trt=Treatment,
+         year=Year)%>%
+  mutate(Study_shorthand="CCE",
+         # convert g to g/m2
+         C3_grass=C3_g*10,
+         C4_grass=C4_g*10,
+         Forb=Forb_g*10,
+         ANPP=Total_g_m)%>%
+  select(Study_shorthand,Plot,Replicate,trt,year,C3_grass,C4_grass,Forb,ANPP)%>%
+  group_by(Study_shorthand,Plot,trt,year)%>%
+  dplyr::summarise(
+    n.reps=n(),
+    C3=mean(C3_grass),
+    C4=mean(C4_grass),
+    FORB=mean(Forb),
+    ANPP=mean(ANPP))
+
+CCE_long<-siggers_CCE%>%
+  pivot_longer(cols=C3:ANPP,names_to="funct_group",values_to="ANPP")
+
+head(CCE_long)
+```
+
+```{r Condon_SLs}
+#### double check this is correct version of data!!! ####
+SLs<-read.csv("deluge/data/Condon_SLs_ANPP_byfunctionalgroup.csv")
+head(SLs,5)
+
+condon_SLs<-SLs%>%
+  rename(trt=new.TRT)%>%
+  mutate(Study_shorthand="Condon_SL",
+         year=case_when(
+           Clip_Type == "clip" ~ "July 2021",
+           Clip_Type == "reclip" ~ "July-Sept Regrowth 2021",
+           Clip_Type == "clip2" ~ "Sept 2021"
+         ),
+         ANPP=rowSums(across(C3:WOODY),na.rm=TRUE),
+         C3=C3*10,
+         C4=C4*10,
+         FORB=FORB*10,
+         ANNUALS=ANNUALS*10,
+         WOODY=WOODY*10,
+         ANPP=ANPP*10)%>%
+  select(Study_shorthand,Plot,trt,year,C3,C4,FORB,ANNUALS,WOODY,ANPP)
+
+head(condon_SLs,5)
+
+condon_SL_long<-condon_SLs%>%
+  pivot_longer(cols=c(C3,C4,FORB,ANNUALS,WOODY,ANPP),names_to="funct_group",values_to="ANPP")
+
+ANPP.avs<-condon_SL_long%>%
+  filter(funct_group=="ANPP")%>%
+  group_by(year,trt)%>%
+  dplyr::summarise(
+    n.plots=n(),
+    av=mean(ANPP),
+    SE=sd(ANPP)/sqrt(n.plots)
+  )
+
+```
+
 
 
 
