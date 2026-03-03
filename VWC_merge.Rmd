@@ -101,7 +101,8 @@ hajek2024 <- Hajek2024_VWC %>%
          date = as.Date(date, format = "%d-%b-%y"), 
          year = year(date), 
          doy = yday(date), 
-         study_trt = paste(Study_shorthand, trt, sep="_"))
+         study_trt = paste(Study_shorthand, trt, sep="_"), 
+         block = NA)
   
 str(hajek2024)
 ```
@@ -109,17 +110,45 @@ str(hajek2024)
 ## Hoover et al., 2022
 - this is actually sentek; need to go back and see if can do non-sentek stuff
 ```{r}
-str(`Hoover2022_CPER-DEX_VWC`)
-hoover2022 <- `Hoover2022_CPER-DEX_VWC` %>%
-  rename(trt = "treatment", 
-         VWC = "vwc") %>%
+str(Hoover2022_VWC_20cm)
+
+hoover.long <- Hoover2022_VWC_20cm %>%
+ pivot_longer(
+    cols = starts_with("X"),
+    names_to = "Date",
+    values_to = "VWC"
+  ) %>%
+  mutate(
+    Date = stringr::str_remove(Date, "^X"),
+    Date = stringr::str_replace_all(Date, "\\.", "-"),
+    # Add "-19" if no year supplied
+    Date = ifelse(!grepl("\\d{2}$", Date), paste0(Date, "-19"), Date),
+    Date = as.Date(Date, format = "%d-%b-%y")
+  ) %>%
+  # remove na
+  filter(!is.na(VWC))
+
+str(hoover.long)
+hoover2022 <- hoover.long %>%
+  rename(trt = "TRT",
+         plot = "Plot",
+         date = "Date") %>%
     # add in the shorthand name
-  mutate(Study_shorthand = "Hoover2022", 
+  mutate(Study_shorthand = "Hoover2022",
          # add in the variable analyzed
-         Variable = "VWC", 
-         Date = as.Date(date, format = "%m/%d%y"), 
-         year = year(Date), 
-         doy = yday(Date), 
+         Variable = "VWC",
+         year = year(date),
+         doy = yday(date),
+         block = NA, 
+         trt = as.character(trt),
+         trt = case_when(
+         trt == 1 ~ "AMB",
+         trt == 2 ~ "CON", 
+         trt == 3 ~ "DRT", 
+         trt == 4 ~ "DRT+DEL", 
+         trt == 5 ~ "DRT+SE", 
+         TRUE ~ trt   
+         ), 
          study_trt = paste(Study_shorthand, trt, sep="_"))
 str(hoover2022)
 ```
@@ -138,7 +167,8 @@ post2020 <- Post2020_VWC %>%
          date = as.Date(date, format = "%m/%d/%y"), 
          year = year(date), 
          doy = yday(date), 
-         study_trt = paste(Study_shorthand, trt, sep="_"))
+         study_trt = paste(Study_shorthand, trt, sep="_"), 
+         block = NA)
 str(post2020)
 ```
 
@@ -155,11 +185,94 @@ post2021 <- Post2021_VWC %>%
   mutate(Study_shorthand = "Post2021", 
          # add in the variable analyzed
          Variable = "VWC", 
+         date = dmy(date), 
+         year = year(date), 
+         doy = yday(date), 
+         study_trt = paste(Study_shorthand, trt, sep="_"), 
+         block = NA)
+str(post2021)
+```
+## CCE - Siggers
+```{r}
+str(CCE_VWC_Year2)
+
+cce <- CCE_VWC_Year2 %>%
+  rename(plot = "Plot_.", 
+         trt = "Trt_.", 
+         date = "Date", 
+         VWC = "X20_cm_VWC_.") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "CCE", 
+         # add in the variable analyzed
+         Variable = "VWC", 
          date = as.Date(date, format = "%m/%d/%y"), 
          year = year(date), 
          doy = yday(date), 
-         study_trt = paste(Study_shorthand, trt, sep="_"))
-str(post2021)
+         study_trt = paste(Study_shorthand, trt, sep="_"), 
+         block = NA) %>%
+  select(-X)
+str(cce)
+```
+
+## Condon
+
+```{r}
+str(Condon_SLs_VWC)
+
+condon_sl <- Condon_SLs_VWC %>%
+  rename(plot = "Plot", 
+         trt = "NewTrt", 
+         date = "Date") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "Condon_SL", 
+         # add in the variable analyzed
+         Variable = "VWC", 
+         date = as.Date(date, format = "%m/%d/%y"), 
+         year = year(date), 
+         doy = yday(date), 
+         study_trt = paste(Study_shorthand, trt, sep="_"), 
+         block = NA) %>%
+  select(-c(X, Comb.TRT))
+
+str(condon_sl)
+```
+
+
+## Linabury
+```{r}
+str(Linabury_ChANGE_VWC)
+
+linabury <- Linabury_ChANGE_VWC %>%
+  rename( 
+         trt = "treatment", 
+         VWC = "vwc") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "Linabury_ChANGE", 
+         # add in the variable analyzed
+         Variable = "VWC", 
+         date = as.Date(date, format = "%m/%d/%y"), 
+         study_trt = paste(Study_shorthand, trt, sep="_")) %>%
+  select(-c(X, site, deluge.date.1, deluge.date.2, dom, month, days_since_deluge, experiment, nitrogen))
+
+str(linabury)
+```
+
+# Combine the files
+
+```{r}
+
+combo <- rbind(hajek2024, hoover2022, post2020, post2021, cce, condon_sl, linabury)
+str(combo)
+
+# Export locally
+write.csv(x = combo, row.names = F, na = '',
+          file = file.path("deluge", "data", "R_exports", "VWC_20cm_harmomnized.csv"))
+
+# Upload to Drive
+googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_20cm_harmomnized.csv"), overwrite = T,
+                          path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+
+
 ```
 
 
