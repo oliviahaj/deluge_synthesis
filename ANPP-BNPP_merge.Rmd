@@ -151,6 +151,26 @@ ANPP.avs<-condon_SL_long%>%
 
 ```
 
+```{r "Hajek2024_ANPP.csv"}
 
 
+```
 
+```{r "Tooley_DRE_ANPP.csv"}
+
+
+```
+
+```{r "Post2020_ANPP.csv" & "Post2020_BNPP.csv"}
+
+```
+
+```{r "Post2021_ANPP.csv","Post2021_BNPP.csv"}
+
+
+```
+
+```{r "Hoover2022_CPER-DEX_Productivity.csv"}
+
+
+```
