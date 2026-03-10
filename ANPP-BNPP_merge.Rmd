@@ -41,7 +41,7 @@ dir.create(file.path("deluge","figures"))
 
 # Copy in productivity data from Google Drive
 ```{r}
-#### pull data from Google Drive to local files - one at a time ####
+#### pull data from Google Drive to local files - one at a time...select 2 to re-link drive as needed ####
 
 ## list all productivity files in drive by name
 prod.files<-c("Linabury_ChANGE_ANPP.csv","CCE_ANPP_2025_R.csv","Condon_SLs_ANPP_byfunctionalgroup.csv","Hajek2024_ANPP.csv","Tooley_DRE_ANPP.csv","Post2020_ANPP.csv","Post2020_BNPP.csv","Post2021_ANPP.csv","Post2021_BNPP.csv","Hoover2022_CPER-DEX_Productivity.csv")
@@ -72,16 +72,15 @@ if(nrow(file.name) == 1){
 - Format to site_id, var, treatment, date, year, doy, value at the plot
 
 ```{r Linabury_ChANGE}
-lin_CHANGE<-read.csv("deluge/data/Linabury_ChANGE_ANPP.csv")
-str(lin_CHANGE)
-
-lin_CHANGE<-lin_CHANGE%>%
-  rename(total_anpp=anpp)%>%
-  pivot_longer(cols=c(grass_anpp,forb_anpp,total_anpp),names_to="funct_group")
-
-
-head(lin_CHANGE)
-
+# lin_CHANGE<-read.csv("deluge/data/Linabury_ChANGE_ANPP.csv")
+# str(lin_CHANGE)
+# 
+# lin_CHANGE<-lin_CHANGE%>%
+#   rename(total_anpp=anpp)%>%
+#   pivot_longer(cols=c(grass_anpp,forb_anpp,total_anpp),names_to="funct_group")
+# 
+# 
+# head(lin_CHANGE)
 
 ```
 
@@ -152,16 +151,98 @@ ANPP.avs<-condon_SL_long%>%
 ```
 
 ```{r "Hajek2024_ANPP.csv"}
+Hajek<-read.csv("deluge/data/Hajek2024_ANPP.csv")
+head(Hajek,5)
 
+Hajek_24<-Hajek%>%
+  rename(trt=Trt,plot=Plot)%>%
+  mutate(Study_shorthand="Hajek2024",
+         year="2024",
+         C3=C3*10,
+         C4=C4*10,
+         FORB=Forb*10,
+         ANNUALS=Annual*10,
+         ANPP=Total_biomass*10)%>%
+  select(Study_shorthand,plot,Rep,trt,year,C3,C4,FORB,ANNUALS,ANPP)
+
+head(Hajek_24,5)
+
+Hajek_24_long<-Hajek_24%>%
+  pivot_longer(cols=c(C3,C4,FORB,ANNUALS,ANPP),names_to="funct_group",values_to="ANPP")%>%
+  group_by(Study_shorthand,year,plot,trt,funct_group)%>%
+  dplyr::summarise(
+    n.its=n(),
+    plot.av=mean(ANPP,na.rm=TRUE),
+    plot.sd=sd(ANPP,na.rm=TRUE))%>%
+  rename(ANPP=plot.av)
 
 ```
 
 ```{r "Tooley_DRE_ANPP.csv"}
+Tooley<-read.csv("deluge/data/Tooley_DRE_ANPP.csv")
+head(Tooley,5)
 
+# Tooley_DRE<-Tooley%>%
+  # rename(year=Year,trt=WaterTreatment,legacy=Treatment,block=shelter,plot=Plot)%>%
+  # mutate(Study_shorthand="Tooley_DRE",
+  #        C3=C3*10,
+  #        C4=C4*10,
+  #        FORB=Forb*10,
+  #        ANNUALS=Annual*10,
+  #        ANPP=Total_biomass*10)%>%
+  # select(Study_shorthand,plot,Rep,trt,year,C3,C4,FORB,ANNUALS,ANPP)
+
+### Question for greg -- what C4 annuals did he have??? And no C3 annuals??? ###
+# head(Hajek_24,5)
+# 
+# Hajek_24_long<-Hajek_24%>%
+#   pivot_longer(cols=c(C3,C4,FORB,ANNUALS,ANPP),names_to="funct_group",values_to="ANPP")%>%
+#   group_by(year,plot,trt,funct_group)%>%
+#   dplyr::summarise(
+#     n.its=n(),
+#     plot.av=mean(ANPP,na.rm=TRUE),
+#     plot.sd=sd(ANPP,na.rm=TRUE))
 
 ```
 
 ```{r "Post2020_ANPP.csv" & "Post2020_BNPP.csv"}
+### ANPP ###
+Post20<-read.csv("deluge/data/Post2020_ANPP.csv")
+head(Post20,5)
+
+Post2020<-Post20%>%
+  rename(trt=Trt,plot=Plot)%>%
+  mutate(Study_shorthand="Post2020",
+         year="2020",
+         GRASS=Grass_total*10,
+         FORB=Forb_mass*10,
+         ANPP=Total_biomass*10)%>%
+  select(Study_shorthand,plot,Rep,trt,year,GRASS,FORB,ANPP)
+
+head(Post2020)
+
+Post2020_long<-Post2020%>%
+  pivot_longer(cols=c(GRASS,FORB,ANPP),names_to="funct_group",values_to="ANPP")%>%
+  group_by(Study_shorthand,year,plot,trt,funct_group)%>%
+  dplyr::summarise(
+    n.its=n(),
+    plot.av=mean(ANPP),
+    plot.sd=sd(ANPP))%>%
+  rename(ANPP=plot.av)
+  
+### BNPP ###
+Post20<-read.csv("deluge/data/Post2020_BNPP.csv")
+head(Post20,5)
+
+Post2020_BNPP<-Post20%>%
+  rename(trt=Trt,plot=Plot,depth=Depth)%>%
+  mutate(Study_shorthand="Post2020",
+         year="2020")%>%
+  select(Study_shorthand,year,plot,trt,depth,BNPP)
+
+head(Post2020_BNPP)
+
+### merge 
 
 ```
 
@@ -171,6 +252,18 @@ ANPP.avs<-condon_SL_long%>%
 ```
 
 ```{r "Hoover2022_CPER-DEX_Productivity.csv"}
+Hoover2022_CPER_DEX<-read.csv("deluge/data/Hoover2022_CPER-DEX_Productivity.csv")
+head(Hoover2022_CPER_DEX,5)
 
+Hoover2022<-Hoover2022_CPER_DEX%>%
+  rename(trt=treatment,ANPP=anpp,BNPP=bnpp)%>%
+  mutate(Study_shorthand="Hoover2022_CPER_DEX",
+         year="2022")%>%
+  select(Study_shorthand,plot,trt,year,ANPP,BNPP)
+
+head(Hoover2022,5)
 
 ```
+
+
+
