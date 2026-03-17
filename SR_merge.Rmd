@@ -114,19 +114,21 @@ str(hajek2024)
 ```{r}
 str(Post2020_Soil_Respiration)
 
-post2020 <- Post2020_GCC %>%
+post2020 <- Post2020_Soil_Respiration %>%
   rename(plot = "Plot", 
          trt = "Trt", 
-         date = "Date") %>%
+         date = "Date",
+         efflux = "Avg_Efflux") %>%
   # add in the shorthand name
   mutate(Study_shorthand = "Post2020", 
          # add in the variable analyzed
-         Variable = "GCC", 
-         date = dmy(paste0(date, "-2017")), 
+         Variable = "SR", 
+         date = as.Date(date, format = "%m/%d/%Y"), 
          year = year(date), 
          doy = yday(date), 
          study_trt = paste(Study_shorthand, trt, sep="_"), 
-         block = NA)
+         block = NA) %>%
+  select(-c(Time, Soil_Temp, VWC))
 str(post2020)
 ```
 
@@ -134,23 +136,144 @@ str(post2020)
 ## Post 2021
 
 ```{r}
-str(Post2021_GCC)
+str(Post2021_Soil_Respiration)
 
-post2021 <- Post2021_GCC %>%
+post2021 <- Post2021_Soil_Respiration %>%
   rename(plot = "Plot", 
          trt = "Trt", 
-         date = "Date") %>%
+         date = "Date", 
+         efflux = "Efflux") %>%
   # add in the shorthand name
   mutate(Study_shorthand = "Post2021", 
          # add in the variable analyzed
-         Variable = "GCC", 
-         date = mdy(paste0(date, "_2018")), 
+         Variable = "SR", 
+         date = as.Date(date, format = "%m/%d/%Y"),  
          year = year(date), 
          doy = yday(date), 
          study_trt = paste(Study_shorthand, trt, sep="_"), 
          block = NA) %>%
-  select(-Precip)
+  select(-c(Soil_temp, VWC, Precip))
 str(post2021)
 
+```
+## Hoover et al. 2022
+```{r}
+str(Hoover2022_soil_Respiration)
+
+Hoover2022 <- Hoover2022_soil_Respiration %>%
+  rename(plot = "Plot", 
+         trt = "TRT", 
+         date = "Date", 
+         efflux = "Efflux") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "Hoover2022", 
+         # add in the variable analyzed
+         Variable = "SR", 
+         date = as.Date(date, format = "%Y-%m-%d"),  
+         year = year(date), 
+         doy = yday(date), 
+         study_trt = paste(Study_shorthand, trt, sep="_"), 
+         block = NA) %>%
+  select(-c(Observer, Soil_Temp, Time, CO2.Target, Soil_Temp, Soil.Moisture....,Efflux..umol.CO2.m.2.s., Soil.Temp..dgC.))
+
+str(Hoover2022)
+```
+
+## Condon
+```{r}
+str(Condon_SLs_Respiration)
+
+Condon <- Condon_SLs_Respiration %>%
+  rename(plot = "Plot", 
+         trt = "NewTrt", 
+         date = "Date", 
+         efflux = "Efflux") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "Condon_SL", 
+         # add in the variable analyzed
+         Variable = "SR", 
+         date = as.Date(date, format = "%m/%d/%y"),  
+         year = year(date), 
+         doy = yday(date), 
+         study_trt = paste(Study_shorthand, trt, sep="_"), 
+         block = NA) %>%
+  select(-c(VWC, Soil_Temp, Drop_resp, Drop_temp))
+
+str(Condon)
+
+```
+## Tooley
+
+```{r}
+str(Tooley_DRE_Respiration)
+
+Tooley_DRE <- Tooley_DRE_Respiration %>%
+  rename(treat=WaterTreatment,legacy=DroughtTreatment)%>%
+  mutate(trt2=paste("Leg.",legacy,"_Trt.",treat,sep=""))%>%
+  # update the treatment column 
+    rename(plot = "Plot", 
+         trt = "trt2", 
+         date = "Date", 
+         efflux = "Efflux") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "Tooley_DRE", 
+         # add in the variable analyzed
+         Variable = "SR", 
+         date = as.Date(date, format = "%m/%d/%Y"),  
+         year = year(date), 
+         doy = yday(date), 
+         study_trt = paste(Study_shorthand, trt, sep="_"), 
+         block = NA) %>%
+  select(-c(treat, legacy))
+str(Tooley_DRE)
+```
+
+## CCE
+```{r}
+str(CCE_Soil_Respiration)
+
+CCE <- CCE_Soil_Respiration %>%
+  # update the treatment column 
+    rename(plot = "Plot", 
+         trt = "Treatment", 
+         date = "Date", 
+         efflux = "Efflux", 
+         block = "Block") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "CCE", 
+         # add in the variable analyzed
+         Variable = "SR", 
+         date = as.Date(date, format = "%m/%d/%y"),  
+         year = year(date), 
+         doy = yday(date), 
+         study_trt = paste(Study_shorthand, trt, sep="_"), 
+         block = NA) %>%
+  select(-c(Time, Target_CO2, SoilTemp, Observer, Notes))
+
+str(CCE)
+
+```
+# Merge all of the dataframes
+
+```{r}
+combo <- rbind(hajek2024, Hoover2022, post2020, post2021, CCE, Condon, Tooley_DRE)
+str(combo)
+
+# Export locally
+write.csv(x = combo, row.names = F, na = '',
+          file = file.path("deluge", "data", "R_exports", "SR_harmomnized.csv"))
+
+# Upload to Drive
+googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "SR_harmomnized.csv"), overwrite = T,
+                          path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+```
+
+
+# Quick viz
+```{r}
+ggplot(combo, aes(doy, efflux))+
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~Study_shorthand, scales="free")
 ```
 
