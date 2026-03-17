@@ -28,6 +28,7 @@ library(data.table)
 library(MuMIn)
 library(scales)
 library(performance)
+library(googledrive)
 
 ```
 
@@ -403,6 +404,18 @@ ANPP_BNPP_harmonized<-rbind(CHANGE_clean, CCE_clean, condon_SL_clean,
 
 head(ANPP_BNPP_harmonized,5)
 ```
+
+```{r export to drive}
+# Export and write to the drives
+# Save your data frame locally first
+# write.csv(ANPP_BNPP_harmonized, "ANPP_harmonized.csv", row.names = FALSE)
+
+# drive_upload(
+#   media = "ANPP_harmonized.csv",
+#   path = file.path("deluge", "data","R_exports"),
+#   name = "ANPP_harmonized.csv")
+```
+
 
 
 
