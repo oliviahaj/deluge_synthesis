@@ -150,6 +150,7 @@ hoover2022 <- hoover.long %>%
          TRUE ~ trt   
          ), 
          study_trt = paste(Study_shorthand, trt, sep="_"))
+
 str(hoover2022)
 ```
 ## Post2020
@@ -197,20 +198,20 @@ str(post2021)
 str(CCE_VWC_Year2)
 
 cce <- CCE_VWC_Year2 %>%
-  rename(plot = "Plot_.", 
-         trt = "Trt_.", 
+  rename(plot = "Plot", 
+         trt = "Treatment", 
          date = "Date", 
-         VWC = "X20_cm_VWC_.") %>%
+         VWC = "X20_cm_VWC_.", 
+         block = "Block") %>%
   # add in the shorthand name
   mutate(Study_shorthand = "CCE", 
          # add in the variable analyzed
          Variable = "VWC", 
-         date = as.Date(date, format = "%m/%d/%y"), 
+         date = as.Date(date, format = "%Y-%m-%d"), 
          year = year(date), 
          doy = yday(date), 
-         study_trt = paste(Study_shorthand, trt, sep="_"), 
-         block = NA) %>%
-  select(-X)
+         study_trt = paste(Study_shorthand, trt, sep="_")) %>%
+  select(-Notes)
 str(cce)
 ```
 
@@ -257,11 +258,36 @@ linabury <- Linabury_ChANGE_VWC %>%
 str(linabury)
 ```
 
+## TOOLEy
+```{r}
+str(Tooley_DRE_VWC)
+tooley <- Tooley_DRE_VWC %>%
+  rename(treat=WaterTreatment,legacy=DroughtTreatment)%>%
+  mutate(trt2=paste("Leg.",legacy,"_Trt.",treat,sep=""))%>%
+  rename(plot = "Plot", 
+         trt = "trt2", 
+         date = "Date", 
+         VWC = "AVGSWC") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "Tooley_DRE", 
+         # add in the variable analyzed
+         Variable = "VWC", 
+         date = as.Date(date, format = "%m/%d/%y"), 
+         year = year(date), 
+         doy = yday(date), 
+         study_trt = paste(Study_shorthand, trt, sep="_"), 
+         block = NA) %>%
+  select(-c(SWC1, SWC2, SWC3, SWC4, SWC5, SWC6, Notes, ...11, treat, legacy))
+str(tooley)
+
+```
+
+
 # Combine the files
 
 ```{r}
 
-combo <- rbind(hajek2024, hoover2022, post2020, post2021, cce, condon_sl, linabury)
+combo <- rbind(hajek2024, hoover2022, post2020, post2021, cce, condon_sl, linabury, tooley)
 str(combo)
 
 # Export locally
@@ -275,4 +301,13 @@ googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_
 
 ```
 
+
+# quick viz
+
+```{r}
+ggplot(combo, aes(doy, VWC))+
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~Study_shorthand, scales="free")
+```
 
