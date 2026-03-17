@@ -41,7 +41,7 @@ dir.create(file.path("deluge","figures"))
 
 # Copy in productivity data from Google Drive
 ```{r}
-#### pull data from Google Drive to local files - one at a time...select 2 to re-link drive as needed ####
+#### pull data from Google Drive to local files - one at a time...**select 2 to re-link drive** as needed ####
 
 ## list all productivity files in drive by name
 prod.files<-c("Linabury_ChANGE_ANPP.csv","CCE_ANPP_2025_R.csv","Condon_SLs_ANPP_byfunctionalgroup.csv","Hajek2024_ANPP.csv","Tooley_DRE_ANPP.csv","Post2020_ANPP.csv","Post2020_BNPP.csv","Post2021_ANPP.csv","Post2021_BNPP.csv","Hoover2022_CPER-DEX_Productivity.csv")
@@ -72,16 +72,23 @@ if(nrow(file.name) == 1){
 - Format to site_id, var, treatment, date, year, doy, value at the plot
 
 ```{r Linabury_ChANGE}
-# lin_CHANGE<-read.csv("deluge/data/Linabury_ChANGE_ANPP.csv")
-# str(lin_CHANGE)
-# 
-# lin_CHANGE<-lin_CHANGE%>%
-#   rename(total_anpp=anpp)%>%
-#   pivot_longer(cols=c(grass_anpp,forb_anpp,total_anpp),names_to="funct_group")
-# 
-# 
-# head(lin_CHANGE)
+lin_CHANGE<-read.csv("deluge/data/Linabury_ChANGE_ANPP.csv")
+head(lin_CHANGE)
 
+CHANGE<-lin_CHANGE%>%
+  rename(ANPP=anpp,
+         trt=treatment,
+         GRASS=grass_anpp,
+         FORB=forb_anpp)%>%
+  mutate(Study_shorthand="Linabury_ChANGE")%>%
+  rename(Block=block)%>%
+  select(Study_shorthand,Block,plot,trt,year,GRASS,FORB,ANPP)
+
+
+CHANGE_long<-CHANGE%>%
+  pivot_longer(cols=c(GRASS,FORB,ANPP),names_to="funct_group",values_to="ANPP")
+
+head(CHANGE_long)
 ```
 
 ```{r Siggers_CCE}
@@ -90,15 +97,16 @@ head(CCE,5)
 
 siggers_CCE<-CCE%>%
   rename(trt=Treatment,
-         year=Year)%>%
+         year=Year,
+         plot=Plot)%>%
   mutate(Study_shorthand="CCE",
          # convert g to g/m2
          C3_grass=C3_g*10,
          C4_grass=C4_g*10,
          Forb=Forb_g*10,
          ANPP=Total_g_m)%>%
-  select(Study_shorthand,Plot,Replicate,trt,year,C3_grass,C4_grass,Forb,ANPP)%>%
-  group_by(Study_shorthand,Plot,trt,year)%>%
+  select(Study_shorthand,plot,Block,Replicate,trt,year,C3_grass,C4_grass,Forb,ANPP)%>%
+  group_by(Study_shorthand,Block,plot,trt,year)%>%
   dplyr::summarise(
     n.reps=n(),
     C3=mean(C3_grass),
@@ -148,6 +156,8 @@ ANPP.avs<-condon_SL_long%>%
     SE=sd(ANPP)/sqrt(n.plots)
   )
 
+head(condon_SL_long,5)
+
 ```
 
 ```{r "Hajek2024_ANPP.csv"}
@@ -176,32 +186,31 @@ Hajek_24_long<-Hajek_24%>%
     plot.sd=sd(ANPP,na.rm=TRUE))%>%
   rename(ANPP=plot.av)
 
+head(Hajek_24_long,5)
+
 ```
 
 ```{r "Tooley_DRE_ANPP.csv"}
 Tooley<-read.csv("deluge/data/Tooley_DRE_ANPP.csv")
 head(Tooley,5)
 
-# Tooley_DRE<-Tooley%>%
-  # rename(year=Year,trt=WaterTreatment,legacy=Treatment,block=shelter,plot=Plot)%>%
-  # mutate(Study_shorthand="Tooley_DRE",
-  #        C3=C3*10,
-  #        C4=C4*10,
-  #        FORB=Forb*10,
-  #        ANNUALS=Annual*10,
-  #        ANPP=Total_biomass*10)%>%
-  # select(Study_shorthand,plot,Rep,trt,year,C3,C4,FORB,ANNUALS,ANPP)
+Tooley_DRE<-Tooley%>%
+rename(year=Year,trt=WaterTreatment,legacy=Treatment,Block=Shelter,plot=Plot)%>%
+mutate(trt2=paste("Leg.",legacy,"_Trt.",trt,sep=""))%>%
+mutate(Study_shorthand="Tooley_DRE",
+       C3=GrassC3*10,
+       C4=GrassC4Per*10,
+       FORB=Forb*10,
+       C4.ANNUALS=GrassC4An*10, # only C4 annuals -- which ones?? And no C3??
+       ANPP=ANPP*10)%>%
+select(Study_shorthand,plot,Block,trt,trt2,year,C3,C4,FORB,C4.ANNUALS,ANPP)
 
-### Question for greg -- what C4 annuals did he have??? And no C3 annuals??? ###
-# head(Hajek_24,5)
-# 
-# Hajek_24_long<-Hajek_24%>%
-#   pivot_longer(cols=c(C3,C4,FORB,ANNUALS,ANPP),names_to="funct_group",values_to="ANPP")%>%
-#   group_by(year,plot,trt,funct_group)%>%
-#   dplyr::summarise(
-#     n.its=n(),
-#     plot.av=mean(ANPP,na.rm=TRUE),
-#     plot.sd=sd(ANPP,na.rm=TRUE))
+Tooley_DRE_long<-Tooley_DRE%>%
+  select(Study_shorthand,plot,Block,trt2,year,C3,C4,FORB,C4.ANNUALS,ANPP)%>%
+  rename(trt=trt2)%>%
+  pivot_longer(cols=c(C3,C4,FORB,C4.ANNUALS,ANPP),names_to="funct_group",values_to="ANPP")
+  
+head(Tooley_DRE_long,5)
 
 ```
 
@@ -238,16 +247,89 @@ Post2020_BNPP<-Post20%>%
   rename(trt=Trt,plot=Plot,depth=Depth)%>%
   mutate(Study_shorthand="Post2020",
          year="2020")%>%
-  select(Study_shorthand,year,plot,trt,depth,BNPP)
+  select(Study_shorthand,year,plot,trt,depth,BNPP)%>%
+  group_by(Study_shorthand,year,trt,plot)%>% # sum depths together (t = top, b = bottom)
+  dplyr::summarise(
+    n.depths=n(),
+    BNPP.gm2=sum(BNPP),
+    .groups="drop"
+  )
 
 head(Post2020_BNPP)
 
 ### merge 
+head(Post2020_long)
+head(Post2020_BNPP)
+
+Post2020_merged<-Post2020_long%>%
+  left_join(Post2020_BNPP %>% select(-n.depths),
+            by=c("Study_shorthand","year","plot","trt"))%>%
+  select(Study_shorthand,year,plot,trt,funct_group,ANPP,BNPP.gm2)%>%
+  rename(BNPP=BNPP.gm2)%>%
+  mutate(BNPP=ifelse(funct_group=="ANPP",BNPP,"NA"))
+
+head(Post2020_merged,5)
+sum(is.na(Post2020_merged$BNPP)) # 3 plots missing - 29, 31, 32
 
 ```
 
 ```{r "Post2021_ANPP.csv","Post2021_BNPP.csv"}
+### ANPP ###
+Post21<-read.csv("deluge/data/Post2021_ANPP.csv")
+head(Post21,5)
 
+Post2021<-Post21%>%
+  rename(trt=Trt,plot=Plot)%>%
+  mutate(Study_shorthand="Post2021",
+         year="2021",
+         GRASS=Grass_total*10,
+         FORB=Forb_mass*10,
+         ANPP=Total_biomass*10)%>%
+  select(Study_shorthand,plot,Rep,trt,year,GRASS,FORB,ANPP)
+
+head(Post2021)
+
+Post2021_long<-Post2021%>%
+  pivot_longer(cols=c(GRASS,FORB,ANPP),names_to="funct_group",values_to="ANPP")%>%
+  group_by(Study_shorthand,year,plot,trt,funct_group)%>%
+  dplyr::summarise(
+    n.its=n(),
+    plot.av=mean(ANPP),
+    plot.sd=sd(ANPP),
+    .groups="drop")%>%
+  rename(ANPP=plot.av)
+  
+### BNPP ###
+Post21<-read.csv("deluge/data/Post2021_BNPP.csv")
+head(Post21,5)
+
+Post2021_BNPP<-Post21%>%
+  rename(trt=Trt,plot=Plot,depth=Depth)%>%
+  mutate(Study_shorthand="Post2021",
+         year="2021")%>%
+  select(Study_shorthand,year,plot,trt,depth,BNPP)%>%
+  group_by(Study_shorthand,year,trt,plot)%>% # sum depths together (T/M/B - top, middle, bottom)
+  dplyr::summarise(
+    n.depths=n(),
+    BNPP.gm2=sum(BNPP),
+    .groups="drop"
+  )
+
+head(Post2021_BNPP)
+
+### merge 
+head(Post2021_long)
+head(Post2021_BNPP)
+
+Post2021_merged<-Post2021_long%>%
+  left_join(Post2021_BNPP %>% select(-n.depths),
+            by=c("Study_shorthand","year","plot","trt"))%>%
+  select(Study_shorthand,year,plot,trt,funct_group,ANPP,BNPP.gm2)%>%
+  rename(BNPP=BNPP.gm2)%>%
+  mutate(BNPP=ifelse(funct_group=="ANPP",BNPP,"NA"))
+
+head(Post2021_merged,5)
+sum(is.na(Post2021_merged$BNPP)) # 0 plots missing
 
 ```
 
@@ -263,6 +345,63 @@ Hoover2022<-Hoover2022_CPER_DEX%>%
 
 head(Hoover2022,5)
 
+```
+
+```{r Check all}
+CHANGE_long
+CCE_long
+condon_SL_long
+Hajek_24_long
+Tooley_DRE_long
+Post2020_merged
+Post2021_merged
+Hoover2022
+
+# final consistencies
+# Standardize each dataframe to have the same columns
+CHANGE_clean<-CHANGE_long%>%
+  select(Study_shorthand, year, Block, plot, trt, funct_group, ANPP)%>%
+  mutate(BNPP = NA, year = as.character(year))
+
+CCE_clean<-CCE_long%>%
+  select(Study_shorthand, year, Block, plot, trt, funct_group, ANPP)%>%
+  mutate(BNPP = NA, year = as.character(year), 
+         plot = as.integer(plot), trt = as.character(trt))
+
+condon_SL_clean<-condon_SL_long%>%
+  rename(plot = Plot)%>%
+  mutate(Block = NA)%>%
+  select(Study_shorthand, year, Block, plot, trt, funct_group, ANPP)%>%
+  mutate(BNPP = NA)
+
+Hajek_24_clean<-Hajek_24_long%>%
+  mutate(Block = NA)%>%
+  select(Study_shorthand, year, Block, plot, trt, funct_group, ANPP)%>%
+  mutate(BNPP = NA)
+
+Tooley_DRE_clean<-Tooley_DRE_long%>%
+  select(Study_shorthand, year, Block, plot, trt, funct_group, ANPP)%>%
+  mutate(BNPP = NA, year = as.character(year))
+
+Post2020_clean<-Post2020_merged%>%
+  mutate(Block = "NA")%>%
+  select(Study_shorthand, year, Block, plot, trt, funct_group, ANPP, BNPP)
+
+Post2021_clean<-Post2021_merged%>%
+  mutate(Block = "NA")%>%
+  select(Study_shorthand, year, Block, plot, trt, funct_group, ANPP, BNPP)
+
+Hoover2022_clean<-Hoover2022%>%
+  mutate(Block = "NA")%>%
+  mutate(funct_group = "ANPP", year = as.character(year))%>%
+  select(Study_shorthand, year, Block, plot, trt, funct_group, ANPP, BNPP)
+
+# Stack them all
+ANPP_BNPP_harmonized<-rbind(CHANGE_clean, CCE_clean, condon_SL_clean,
+                      Hajek_24_clean, Tooley_DRE_clean,
+                      Post2020_clean, Post2021_clean, Hoover2022_clean)
+
+head(ANPP_BNPP_harmonized,5)
 ```
 
 
