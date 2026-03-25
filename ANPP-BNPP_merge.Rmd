@@ -210,7 +210,7 @@ Tooley_DRE_long<-Tooley_DRE%>%
   select(Study_shorthand,plot,Block,trt2,year,C3,C4,FORB,C4.ANNUALS,ANPP)%>%
   rename(trt=trt2)%>%
   pivot_longer(cols=c(C3,C4,FORB,C4.ANNUALS,ANPP),names_to="funct_group",values_to="ANPP")
-  
+
 head(Tooley_DRE_long,5)
 
 ```

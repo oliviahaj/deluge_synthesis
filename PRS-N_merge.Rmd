@@ -8,37 +8,225 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+library(knitr)
+library(tidyverse)
+library(dplyr)
+library(car)
+library(emmeans)
+library(multcomp)
+library(lmerTest)
+library(lme4)
+library(RColorBrewer)
+library(rstatix)
+library(tidyr)
+library(ggpubr)
+library(lubridate)
+library(ggtext)
+library(ggh4x)
+library(ggpattern)
+library(data.table)
+library(MuMIn)
+library(scales)
+library(performance)
+library(googledrive)
 
 ```
 
-```{r Condon_SL}
+## Set file directories - local
+```{r}
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge","data"), showWarnings = F)
+dir.create(file.path("deluge","data","R_exports"))
+dir.create(file.path("deluge","figures"))
+```
 
+# Copy in productivity data from Google Drive
+```{r}
+#### pull data from Google Drive to local files - one at a time...**select 2 to re-link drive** as needed ####
+
+## list all productivity files in drive by name
+prs.files<-c("CCE_PRS-N.csv","Condon_SLs_PRS_NO3.csv","Hajek2024_Nutrient Availability.csv","Linabury_ChANGE_ANPP.csv","Tooley_DRE_PRS-N.csv")
+
+## read in drive folder
+drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p"))
+  
+## read in each file
+for (i in prs.files){
+  
+file.name<-drive.files %>% 
+  dplyr::filter(name == i) 
+
+# if-else, to throw error if file name is incorrect or error would otherwise stop loop
+if(nrow(file.name) == 1){
+  googledrive::drive_download(file = file.name$id, 
+                              overwrite = T,
+                              path = file.path("deluge", 'data', i))
+  
+} else{
+  message("File error - check name or if duplicated: ", i)
+  }
+}
+
+```
+
+# Reformat data to all match
+- Format to site_id, var, treatment, date, year, doy, value at the plot
+
+```{r Condon_SL}
+Condon<-read.csv("deluge/data/Condon_SLs_PRS_NO3.csv")
+head(Condon,5)
+view(Condon)
+Condon_SLs<-Condon%>%
+  rename(trt=TRT,plot=Plot)%>%
+  mutate(Study_shorthand="Condon_SLs",
+         year="2021",
+         Burial="7/13/21 to 9/10/21",
+         installed.days="60",
+         Block=NA)%>%
+  select(Study_shorthand,Burial,installed.days,plot,Block,trt,year,Nutrient,rate)
+
+head(Condon_SLs,5)
 ```
 
 ```{r Siggers_CCE}
+Siggers<-read.csv("deluge/data/CCE_PRS-N.csv")
+head(Siggers,5)
 
+Siggers_CCE<-Siggers%>%
+  filter(Plot_Type=="Core")%>%
+  rename(trt=Treatment,plot=Plot)%>%
+  mutate(Study_shorthand="CCE",
+         year="2025",
+         Burial=paste(Burial_date,"to",Retrieval_date,sep=" "),
+         installed.days=case_when(
+           Season == "Late 2025" ~ "21",
+           Season == "Early 2025" ~ "30",
+           Season == "Late 2024" ~ "30",
+           Season == "Early 2024" ~ "32"))%>%
+  select(Study_shorthand,Burial,installed.days,plot,Block,trt,year,NO3.N:Cd)
 
+head(Siggers_CCE,5)
+
+CCE_long<-Siggers_CCE%>%
+  pivot_longer(cols=c(NO3.N:Cd),names_to="Nutrient",values_to="rate")
+
+head(CCE_long,5)
 ```
 
 ```{r Tooley_DRE}
+Tooley<-read.csv("deluge/data/Tooley_DRE_PRS-N.csv")
+head(Tooley)
 
+Tooley_DRE<-Tooley%>%
+rename(year=Year,trt=WaterTreatment,legacy=DroughtTreatment,plot=Plot)%>%
+mutate(trt2=paste("Leg.",legacy,"_Trt.",trt,sep=""))%>%
+mutate(Study_shorthand="Tooley_DRE",
+       Block = case_when(
+         plot %in% c(1:10) ~ 1,
+         plot %in% c(11:20) ~ 2,
+         plot %in% c(21:30) ~ 3,
+         plot %in% c(31:40) ~ 4),
+       Burial=paste(Burial.Date,"to",Retrieval.Date,sep=" "),
+       Nutrient="NO3.N",
+       rate=NO3.N)%>%
+  rename(installed.days=Days)%>%
+select(Study_shorthand,Burial,installed.days,plot,Block,trt2,year,Nutrient,rate)
 
+Tooley_DRE_long<-Tooley_DRE%>%
+  rename(trt=trt2)
+
+head(Tooley_DRE_long,5)
 ```
 
 ```{r Hajek_2024}
+Hajek<-read.csv("deluge/data/Hajek2024_Nutrient Availability.csv")
+head(Hajek,5)
 
+Hajek_24<-Hajek%>%
+  rename(trt=Trt,plot=Plot)%>%
+  mutate(Study_shorthand="Hajek2024",
+         year="2024",
+         Burial=paste(Burial.Date,"to",Retrieval.Date,sep=" "),
+         installed.days=case_when(
+           Season == "Autumn" ~ "80",
+           Season == "Spring" ~ "98"),
+         Block=NA)%>%
+  select(Study_shorthand,Burial,installed.days,plot,Block,trt,year,NO3:Cd)%>%
+  rename(NO3.N=NO3,
+         NH4.N=NH4)
 
+head(Hajek_24,5)
+
+Hajek_24_long<-Hajek_24%>%
+  pivot_longer(cols=c(NO3.N:Cd),names_to="Nutrient",values_to="rate")
+
+head(Hajek_24_long,5)
 ```
 
 ```{r Linabury_ChANGE}
+lin_CHANGE<-read.csv("deluge/data/Linabury_ChANGE_ANPP.csv")
+head(lin_CHANGE)
 
+CHANGE<-lin_CHANGE%>%
+  rename(trt=treatment,Block=block,NH4.N=ammonium,NO3.N=nitrate)%>%
+  mutate(Study_shorthand="Linabury_ChANGE",
+         Burial=NA,
+         installed.days=NA)%>%
+  select(Study_shorthand,Burial,installed.days,plot,Block,trt,year,NO3.N,NH4.N)
 
+CHANGE_long<-CHANGE%>%
+  pivot_longer(cols=c(NO3.N,NH4.N),names_to="Nutrient",values_to="rate")
+
+head(CHANGE_long)
 ```
 
 ``` {r Check all_data}
+str(Condon_SLs)
+str(CCE_long)
+str(Tooley_DRE_long)
+str(Hajek_24_long)
+str(CHANGE_long)
 
+# final consistencies 
+# Standardize each dataframe to have the same TYPES of columns
+condon_SL_clean<-Condon_SLs%>%
+  mutate(installed.days=as.numeric(installed.days),
+         Block=as.factor(Block))
 
+CCE_clean<-CCE_long%>%
+  mutate(installed.days=as.numeric(installed.days),
+         Block=as.factor(Block))
+  
+Tooley_DRE_clean<-Tooley_DRE_long%>%
+  mutate(installed.days=as.numeric(installed.days),
+         Block=as.factor(Block))
+  
+  
+Hajek_24_clean<-Hajek_24_long%>%
+  mutate(installed.days=as.numeric(installed.days),
+         Block=as.factor(Block))
+ 
 
+CHANGE_clean<-CHANGE_long%>%
+  mutate(installed.days=as.numeric(installed.days),
+         Block=as.factor(Block))
+
+# stack them all together
+PRS_harmonized<-rbind(CHANGE_clean, CCE_clean, condon_SL_clean,
+                      Hajek_24_clean, Tooley_DRE_clean)
+
+str(PRS_harmonized)
 ```
 
+```{r export to drive}
+# Export and write to the drives
+# Save your data frame locally first
+# write.csv(PRS_harmonized, "PRS_Nutrients_harmonized.csv", row.names = FALSE)
+
+# Add to Drive files
+# drive_upload(
+#   media = "PRS_Nutrients_harmonized.csv",
+#   path = file.path("deluge", "data","R_exports"),
+#   name = "PRS_Nutrients_harmonized.csv")
+```
 
