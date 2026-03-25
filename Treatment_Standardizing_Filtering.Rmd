@@ -30,3 +30,106 @@ library(scales)
 library(performance)
 library(googledrive)
 ```
+
+```{r set file directories - local}
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge","data"), showWarnings = F)
+dir.create(file.path("deluge","data","R_exports"))
+dir.create(file.path("deluge","figures"))
+```
+
+```{r read in selected treatments file}
+# read in the selected treatments file
+trts <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1fpoG0wLLqjFLkucR2ZlNMon31DIW1GH-")) %>%
+  dplyr::filter(name == "selected_treatments")
+
+# Did that work?
+trts
+
+# Download the excluded treatment file
+googledrive::drive_download(file = trts$id, overwrite = T, type = "csv",
+                            path = file.path("deluge", trts$name))
+
+# Read in excluded treatment file
+excl_trt <- read.csv(file = file.path("deluge", "selected_treatments.csv"))
+str(excl_trt)
+```
+
+```{r Copy in productivity}
+## list all productivity files in drive by name
+harm.files<-c("ANPP_harmonized.csv","GCC_harmonized.csv","PRS_Nutrients_harmonized.csv","SR_harmonized.csv","VWC_20cm_harmonized.csv")
+
+## read in drive folder
+drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3?usp=drive_link"))
+  
+## read in each file
+for (i in harm.files){
+  
+file.name<-drive.files %>% 
+  dplyr::filter(name == i) 
+
+# if-else, to throw error if file name is incorrect or error would otherwise stop loop
+if(nrow(file.name) == 1){
+  googledrive::drive_download(file = file.name$id, 
+                              overwrite = T,
+                              path = file.path("deluge", 'data', i))
+  
+} else{
+  message("File error - check name or if duplicated: ", i)
+  }
+}
+
+```
+
+```{r check all files}
+ANPP<-read.csv("deluge/data/ANPP_harmonized.csv")
+GCC<-read.csv("deluge/data/GCC_harmonized.csv")
+PRS<-read.csv("deluge/data/PRS_Nutrients_harmonized.csv")
+SR<-read.csv("deluge/data/SR_harmonized.csv")
+VWC<-read.csv("deluge/data/VWC_20cm_harmonized.csv")
+
+str(ANPP)
+str(GCC)
+str(PRS)
+str(SR)
+str(VWC)
+```
+
+```{r Merge ANPP and PRS}
+# change trt columns to not merge (assuming some different trt names)
+ANPP<-ANPP%>%
+  mutate(plot=if_else(
+    Study_shorthand == "Linabury_ChANGE",
+    paste(as.factor(plot),as.factor(trt),sep="_"),
+    as.factor(plot)))%>%
+  rename(ANPP_trt=trt)
+
+PRS<-PRS%>%
+  mutate(plot=if_else(
+    Study_shorthand == "Linabury_ChANGE",
+    paste(as.factor(plot),as.factor(trt),sep="_"),
+    as.factor(plot)))%>%
+  rename(PRS_trt=trt)
+
+# merge by Study_shorthand,plot,Block,year
+str(ANPP)
+str(PRS)
+
+seasonal<-merge(ANPP,PRS,by=c("Study_shorthand","plot","Block","year"),all=TRUE)
+str(seasonal)
+
+# check unique trts
+seasonal.trts<-seasonal%>%
+  select(Study_shorthand,ANPP_trt,PRS_trt)%>%
+  unique()
+
+# just try merging by plot?
+view(seasonal)
+
+seasonal.filtered<-seasonal%>%
+  filter() ## finish figuring out how to check what trt names are for each study and choose which to actually use
+
+```
+
+
+
