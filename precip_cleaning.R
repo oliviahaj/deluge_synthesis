@@ -259,10 +259,17 @@ ggplot(ppt_long, aes(month, precip.mm, color=Pasture))+
 
 # select the pastures
 unique(ppt_long$Pasture)
-pastures <- c("hm.15E", "hm.25SE", "hm.25NW")
+pastures <- c("hm.15E", "hm.25SE", "hm.25NW", "25C", "31W")
 
 ppt.select <- ppt_long %>%
   filter(Pasture %in% pastures) 
+
+ppt.select.wide <- full_ppt2 %>%
+  filter(Pasture %in% pastures) %>%
+  arrange(year) %>%
+  filter(Pasture != "hm.25NW" | year == 2024) %>%
+  filter(Pasture != "31W" | year == 2018) %>%
+  mutate(location = ifelse(Pasture == "hm.15E", "CHANGE", "DEX"))
 
 ggplot(ppt.select, aes(month, precip.mm, color=Pasture))+
   geom_point()+
@@ -283,7 +290,17 @@ googledrive::drive_download(file = trts$id, overwrite = T, type = "csv",
                             path = file.path("deluge", trts$name))
 
 # Read in excluded treatment file
-excl_trt <- read.csv(file = file.path("deluge", "selected_treatments.csv"))
+trt <- read.csv(file = file.path("deluge", "selected_treatments.csv"))
+
+# Select the treatments and their precip year only
+trt_years <- trt %>%
+  select(Study, precip_year) %>%
+  rename(year = "precip_year") %>% 
+  filter(Study != "Siggers et al. ") %>%
+  mutate(location = ifelse(Study == "Linbabury et al. CHANGE", "CHANGE", "DEX")) %>%
+  left_join(ppt.select.wide)
+
+  
 
 
 
