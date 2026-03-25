@@ -189,6 +189,7 @@ cleaned_combo2 <- cleaned_combo%>%
   ) %>%
   select(Pasture, year, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12)
 
+
 ## combine wiht the other data - another full join to merge data where relevant, will priortize the cleaned dataset
 ## in this case though...
 full_ppt <- full_join(ppt_pre_2017, cleaned_combo2, by = c("Pasture", "year"))
@@ -241,10 +242,48 @@ drive_upload(
 )
 
 
+# Prep data for monthly precip values
+# Convert to long
+str(full_ppt2)
+ppt_long <- full_ppt2 %>%
+  pivot_longer(m1:m12, names_to = "month", values_to ="precip.mm") %>%
+  mutate(month = as.numeric(str_remove(month, "m")))
+
 ## some quick visualizations
-ggplot(ppt_sum, aes(year, ann_ppt))+
+ggplot(ppt_long, aes(month, precip.mm, color=Pasture))+
   geom_point()+
-  theme_bw()
-ggplot(ppt_sum, aes(year, gs_ppt))+
+  geom_line()+
+  theme_bw() + 
+  facet_wrap(~year)+
+  theme(legend.position = "none")
+
+# select the pastures
+unique(ppt_long$Pasture)
+pastures <- c("hm.15E", "hm.25SE", "hm.25NW")
+
+ppt.select <- ppt_long %>%
+  filter(Pasture %in% pastures) 
+
+ggplot(ppt.select, aes(month, precip.mm, color=Pasture))+
   geom_point()+
-  theme_bw()
+  geom_line()+
+  theme_bw() + 
+  facet_wrap(~year)+
+  theme(legend.position = "none")
+
+# read in the selected treatments file
+trts <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1fpoG0wLLqjFLkucR2ZlNMon31DIW1GH-")) %>%
+  dplyr::filter(name == "selected_treatments")
+
+# Did that work?
+trts
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = trts$id, overwrite = T, type = "csv",
+                            path = file.path("deluge", trts$name))
+
+# Read in excluded treatment file
+excl_trt <- read.csv(file = file.path("deluge", "selected_treatments.csv"))
+
+
+
