@@ -292,15 +292,49 @@ googledrive::drive_download(file = trts$id, overwrite = T, type = "csv",
 # Read in excluded treatment file
 trt <- read.csv(file = file.path("deluge", "selected_treatments.csv"))
 
+
+ppt.select.wide_lag <- ppt.select.wide %>%
+  mutate(year = year + 1) %>%        # shift forward so previous year aligns
+  rename_with(~ paste0(.x, "_prev"), -c(year, location)) %>%
+  select(-Pasture_prev)
+## Precip with lag
+ppt.wide <- left_join(ppt.select.wide, ppt.select.wide_lag, by = c("year", "location"))
+ppt.wide2 <- ppt.wide %>%
+  select(-Pasture)
+
+
 # Select the treatments and their precip year only
 trt_years <- trt %>%
-  select(Study, precip_year) %>%
+  select(Study, Treatment_raw, precip_year) %>%
   rename(year = "precip_year") %>% 
   filter(Study != "Siggers et al. ") %>%
-  mutate(location = ifelse(Study == "Linbabury et al. CHANGE", "CHANGE", "DEX")) %>%
-  left_join(ppt.select.wide)
+  mutate(location = ifelse(Study == "Linbabury et al. CHANGE", "CHANGE", "DEX"), 
+         year = ifelse(Treatment_raw == "SEP", 2022, year)) %>%
+  left_join(ppt.wide2) 
 
-  
+deluge_trt <- trt %>%
+  select(Study, Treatment_raw, precip_year, Deluge_size_mm, Deluge_month) %>%
+  rename(year = "precip_year") %>% 
+  mutate(Deluge_month = paste0("m", as.character(Deluge_month), by = "")) %>%
+  filter(Deluge_month != "mNA") %>%
+  mutate(month = ifelse(Treatment_raw == "SEP", "m9_prev", Deluge_month)) %>%
+  select(-Deluge_month)
 
+str(trt_years)
+ppt.long <- trt_years %>%
+  pivot_longer(
+    cols = m1:ann_ppt_prev,
+    names_to = "month",
+    values_to = "precip",
+    values_drop_na = F
+  ) %>%
+  left_join(deluge_trt)%>%
+  mutate(Deluge_size_mm = ifelse(is.na(Deluge_size_mm), 0, Deluge_size_mm), 
+         precip.mm = precip + Deluge_size_mm)
+  # fix alison's so that the treatments subtract 8 mm
 
+# update Hoover et al. 2022 precip
 
+# add in Alex's data
+
+# save and export
