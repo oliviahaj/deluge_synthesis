@@ -305,19 +305,20 @@ ppt.wide2 <- ppt.wide %>%
 
 # Select the treatments and their precip year only
 trt_years <- trt %>%
-  select(Study, Treatment_raw, precip_year) %>%
-  rename(year = "precip_year") %>% 
+  select(Study, Treatment_raw, response_year) %>%
+  rename(year = "response_year") %>% 
   filter(Study != "Siggers et al. ") %>%
   mutate(location = ifelse(Study == "Linbabury et al. CHANGE", "CHANGE", "DEX"), 
          year = ifelse(Treatment_raw == "SEP", 2022, year)) %>%
   left_join(ppt.wide2) 
 
 deluge_trt <- trt %>%
-  select(Study, Treatment_raw, precip_year, Deluge_size_mm, Deluge_month) %>%
-  rename(year = "precip_year") %>% 
+  select(Study, Treatment_raw, response_year, Deluge_size_mm, Deluge_month) %>%
+  rename(year = "response_year") %>% 
   mutate(Deluge_month = paste0("m", as.character(Deluge_month), by = "")) %>%
   filter(Deluge_month != "mNA") %>%
-  mutate(month = ifelse(Treatment_raw == "SEP", "m9_prev", Deluge_month)) %>%
+  mutate(month = ifelse(Treatment_raw == "SEP", "m9_prev", Deluge_month), 
+         month = ifelse(Study == "Tooley et al. DRE", "m9_prev", month)) %>%
   select(-Deluge_month)
 
 str(trt_years)
@@ -330,11 +331,80 @@ ppt.long <- trt_years %>%
   ) %>%
   left_join(deluge_trt)%>%
   mutate(Deluge_size_mm = ifelse(is.na(Deluge_size_mm), 0, Deluge_size_mm), 
-         precip.mm = precip + Deluge_size_mm)
-  # fix alison's so that the treatments subtract 8 mm
+         precip.mm = precip + Deluge_size_mm) %>%
+  # fix alison's so that the treatments subtract 8 mm - it is minus 8 in july 2018 for 2021 study
+  mutate(precip.mm = ifelse(Study == "Post and Knapp 2021" & year == 2018 & month == "m7", precip.mm-8, precip.mm)) %>%
+  # Fix Dave's study names
+  mutate(Treatment_raw = case_when(
+    Treatment_raw == "DRT (3)" ~ "DRT", 
+    Treatment_raw == "DRT+DEL (4)" ~ "DRT+DEL", 
+    TRUE ~ Treatment_raw))
 
 # update Hoover et al. 2022 precip
+hoover.ppt <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p")) %>%
+  dplyr::filter(name == "Hoover2022_CPER-DEX_Precipitation.csv")
 
+# Did that work?
+hoover.ppt 
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = hoover.ppt $id, overwrite = T, type = "csv",
+                            path = file.path("deluge","data", hoover.ppt $name))
+
+# Read in hoover ppt
+hoover.ppt  <- read.csv(file = file.path("deluge","data", "Hoover2022_CPER-DEX_Precipitation.csv"))
+str(hoover.ppt)
+
+hppt <- hoover.ppt %>%
+  mutate(date = as.Date(date, format = "%m/%d/%Y"), month=month(date), month = paste("m", as.character(month), sep=""), year = year(date)) %>%
+  group_by(treatment, month, year) %>%
+  summarize(precip.mm2 = sum(precipitation)) %>%
+  rename(Treatment_raw = "treatment") %>%
+  mutate(precip.mm2 = ifelse(month == "m5", precip.mm2 + 37, precip.mm2)) 
+
+ppt.long2 <- left_join(ppt.long, hppt)
+ppt.long3 <- ppt.long2 %>%
+  mutate(ppt.mm = coalesce(precip.mm2, precip.mm))
+  
 # add in Alex's data
+alex.ppt <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/18toIfC8jV7s8ZzAD0SV9CWL4SvGgn-RO")) %>%
+  dplyr::filter(name == "CCE_PPT_Clean_wMeta.xlsx")
+
+# Did that work?
+alex.ppt 
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = alex.ppt $id, overwrite = T, type = "xlsx",
+                            path = file.path("deluge","precip_data", alex.ppt$name))
+
+library(readxl)
+alex.ppt  <- read_excel("/Users/olhajek/Desktop/deluge_synthesis/Deluge_synthesis/deluge/precip_data/CCE_PPT_Clean_wMeta.xlsx", sheet = "CCE_PPT_Clean")
+str(alex.ppt)
+
+alex <- alex.ppt %>%
+  select(c("date","ppt.ctrl", "ppt.del", "ppt.drt", "ppt.drtdel"))%>%
+  mutate(month = month(date), year = year(date), year = ifelse(month > 9, year + 1, year), month = paste("m", as.character(month),sep ='')) %>%
+  filter(year != 2023) %>%
+  pivot_longer(cols = starts_with("ppt."), 
+               names_to="Treatment_raw", 
+               values_to="precip.mm2") %>%
+  group_by(month, year, Treatment_raw) %>%
+  summarize(ppt.mm = sum(precip.mm2)) %>%
+  mutate(month = ifelse(year == 2024, paste(month, "prev",sep="_"), month), 
+         Study = "Siggers et al.", 
+         year = 2025)
+
+## Join
+str(ppt.long3)
+
+ppt.join <- ppt.long3 %>%
+  select(c(Study, Treatment_raw, year, month, ppt.mm)) %>%
+  rbind(alex) %>%
+  pivot_wider(values_from = ppt.mm, names_from = month) %>%
+  # update growing and ann ppt
+  mutate(gs_ppt =, 
+         ann_ppt = ,
+         gs_ppt_prev = , 
+         ann_ppt_prev = )
 
 # save and export
