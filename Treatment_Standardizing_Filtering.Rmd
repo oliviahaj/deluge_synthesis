@@ -95,6 +95,7 @@ googledrive::drive_download(file = trts$id, overwrite = T, type = "csv",
 # Read in excluded treatment file
 excl_trt <- read.csv(file = file.path("deluge", "selected_treatments.csv"))
 str(excl_trt)
+
 ```
 
 ```{r Copy in productivity}

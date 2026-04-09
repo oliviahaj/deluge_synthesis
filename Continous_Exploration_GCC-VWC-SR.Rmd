@@ -7,24 +7,122 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+library(knitr)
+library(tidyverse)
+library(dplyr)
+library(car)
+library(emmeans)
+library(multcomp)
+library(lmerTest)
+library(lme4)
+library(RColorBrewer)
+library(rstatix)
+library(tidyr)
+library(ggpubr)
+library(lubridate)
+library(ggtext)
+library(ggh4x)
+library(ggpattern)
+library(data.table)
+library(MuMIn)
+library(scales)
+library(performance)
+library(googledrive)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r set file directories - local}
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge","data"), showWarnings = F)
+dir.create(file.path("deluge","data","R_exports"))
+dir.create(file.path("deluge","figures"))
 ```
 
-## Including Plots
+```{r read in continuous files - choose 2 to refresh connection}
+drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3?usp=drive_link"))
 
-You can also embed plots, for example:
+cont.files<-c("GCC_filtered.csv","SR_filtered.csv","VWC_20cm_filtered.csv")
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+## read in each file
+for (i in cont.files){
+  
+file.name<-drive.files %>% 
+  dplyr::filter(name == i) 
+
+# if-else, to throw error if file name is incorrect or error would otherwise stop loop
+if(nrow(file.name) == 1){
+  googledrive::drive_download(file = file.name$id, 
+                              overwrite = T,
+                              path = file.path("deluge", 'data', i))
+  
+} else{
+  message("File error - check name or if duplicated: ", i)
+  }
+}
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r check files}
+GCC<-read.csv("deluge/data/GCC_filtered.csv")
+str(GCC)
+
+VWC<-read.csv("deluge/data/VWC_20cm_filtered.csv")
+str(VWC)
+
+SR<-read.csv("deluge/data/SR_filtered.csv")
+str(SR)
+```
+
+```{r daily over gs}
+dat<-GCC%>%
+  mutate(var=GCC)
+# dat<-VWC%>%
+#   mutate(var=VWC)
+# dat<-SR%>%
+#   mutate(var=efflux)
+
+str(dat)
+
+cleanup.dat<-dat%>%
+  mutate(new.date=as.Date(date,format="%Y-%m-%d"),
+         trt=factor(trt),
+         Study_shorthand=factor(Study_shorthand))%>%
+  mutate(yr=year(new.date),
+         mon=month(new.date))
+
+str(cleanup.dat)
+
+daily.avs<-cleanup.dat%>%
+  group_by(Study_shorthand,new.date,yr,trt)%>%
+  filter(!is.na(var))%>%
+  dplyr::summarise(
+    plots.per.trt=n(),
+    av=mean(var),
+    sd=sd(var),
+    SE=sd/sqrt(plots.per.trt))%>%
+  mutate(trt_type=if_else(grepl("DEL",trt),"DEL","CON"))%>%
+  mutate(Study_trt=paste(Study_shorthand,trt,sep=": "))
+
+head(daily.avs,5)
+
+## graph 
+ggplot(daily.avs,aes(x=new.date,y=av,group=trt,linetype=trt_type,color=Study_trt)) +
+  geom_line() +
+  geom_point() +
+  geom_errorbar(aes(ymin=av-SE, ymax=av+SE), width=0.2) +
+  facet_wrap(~Study_shorthand+yr, scales="free_x") +
+  scale_x_date(date_labels="%b %d") +
+  labs(
+    x="Date",
+    y="Mean",
+    linetype="Treatment")+
+  theme_bw()
+
+```
+
+# fix mary's data
+-- fill in both years with deluge size and correct dates -- DONE
+-- finish merging file -- DELUGE CHARACTERISTICS FILE READY TO GO
+-- plot all of them -- CAN DO NEXT
+
+
