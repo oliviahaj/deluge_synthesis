@@ -41,7 +41,7 @@ dir.create(file.path("deluge","figures"))
 ```{r read in continuous files - choose 2 to refresh connection}
 drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3?usp=drive_link"))
 
-cont.files<-c("GCC_filtered.csv","SR_filtered.csv","VWC_20cm_filtered.csv")
+cont.files<-c("GCC_filtered.csv","SR_filtered.csv","VWC_20cm_filtered.csv","deluge_characteristics_mergeable.csv")
 
 ## read in each file
 for (i in cont.files){
@@ -71,15 +71,24 @@ str(VWC)
 
 SR<-read.csv("deluge/data/SR_filtered.csv")
 str(SR)
+
+#### merge w/ deluge characteristics
+del.info<-read.csv("deluge/data/deluge_characteristics_mergeable.csv")
+str(del.info)
 ```
 
 ```{r daily over gs}
-dat<-GCC%>%
-  mutate(var=GCC)
-# dat<-VWC%>%
-#   mutate(var=VWC)
+# dat<-GCC%>%
+#   mutate(var=as.numeric(GCC))
+# x.lab="GCC"
+
+dat<-VWC%>%
+  mutate(var=as.numeric(VWC))
+x.lab="VWC (20cm)"
+
 # dat<-SR%>%
-#   mutate(var=efflux)
+#   mutate(var=as.numeric(efflux))
+# y.lab="Efflux"
 
 str(dat)
 
@@ -87,13 +96,13 @@ cleanup.dat<-dat%>%
   mutate(new.date=as.Date(date,format="%Y-%m-%d"),
          trt=factor(trt),
          Study_shorthand=factor(Study_shorthand))%>%
-  mutate(yr=year(new.date),
+  mutate(year=year(new.date),
          mon=month(new.date))
 
 str(cleanup.dat)
 
 daily.avs<-cleanup.dat%>%
-  group_by(Study_shorthand,new.date,yr,trt)%>%
+  group_by(Study_shorthand,new.date,year,trt)%>%
   filter(!is.na(var))%>%
   dplyr::summarise(
     plots.per.trt=n(),
@@ -105,24 +114,33 @@ daily.avs<-cleanup.dat%>%
 
 head(daily.avs,5)
 
+merge.daily<-merge(daily.avs,del.info,by=c("Study_shorthand","year","trt"))
+head(merge.daily,5)
+
+daily<-merge.daily%>%
+  mutate(doy.date=yday(new.date),
+         del_start=as.Date(del_start,format="%m/%d/%y"),
+         del_end=as.Date(del_end,format="%m/%d/%y"))
+
 ## graph 
-ggplot(daily.avs,aes(x=new.date,y=av,group=trt,linetype=trt_type,color=Study_trt)) +
+ggplot(daily,aes(x=doy.date,y=av,group=trt,linetype=trt_type,color=Study_trt)) +
+  geom_rect(aes(xmin=yday(del_start),xmax=yday(del_end),ymin=-Inf,ymax=Inf),color=NA,fill="lightblue")+
   geom_line() +
   geom_point() +
   geom_errorbar(aes(ymin=av-SE, ymax=av+SE), width=0.2) +
-  facet_wrap(~Study_shorthand+yr, scales="free_x") +
-  scale_x_date(date_labels="%b %d") +
+  facet_wrap(~Study_shorthand+year,ncol=2) +
+  # scale_x_date(date_labels="%b %d") +
   labs(
     x="Date",
-    y="Mean",
+    y=y.lab,
     linetype="Treatment")+
-  theme_bw()
+  theme_bw()+
+  theme(legend.position="bottom")+
+  scale_color_d3(palette = "category20")
 
+### add deluge dates vertical lines on all
 ```
 
-# fix mary's data
--- fill in both years with deluge size and correct dates -- DONE
--- finish merging file -- DELUGE CHARACTERISTICS FILE READY TO GO
--- plot all of them -- CAN DO NEXT
+
 
 
