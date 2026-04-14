@@ -402,9 +402,21 @@ ppt.join <- ppt.long3 %>%
   rbind(alex) %>%
   pivot_wider(values_from = ppt.mm, names_from = month) %>%
   # update growing and ann ppt
-  mutate(gs_ppt =, 
-         ann_ppt = ,
-         gs_ppt_prev = , 
-         ann_ppt_prev = )
+  mutate(gs_ppt = coalesce(gs_ppt, sum(c_across(m5:m8), na.rm = TRUE)),
+         ann_ppt =coalesce(ann_ppt, sum(c_across(m1:m12), na.rm = TRUE)),
+         gs_ppt_prev = coalesce(gs_ppt_prev, sum(c_across(m5_prev:m8_prev), na.rm = TRUE)),
+         ann_ppt_prev =  coalesce(ann_ppt_prev, sum(c_across(m1_prev:m12_prev), na.rm = TRUE)))
 
 # save and export
+
+write.csv(ppt.join, "precip_data_cleaned_trts.csv", row.names = FALSE)
+
+drive_upload(
+  media = "precip_data_cleaned_trts.csv",
+  path = file.path("deluge", "precip_data"),
+  name = "precip_data_cleaned_trts.csv"
+)
+
+
+
+
