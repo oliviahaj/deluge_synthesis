@@ -402,10 +402,11 @@ ppt.join <- ppt.long3 %>%
   rbind(alex) %>%
   pivot_wider(values_from = ppt.mm, names_from = month) %>%
   # update growing and ann ppt
-  mutate(gs_ppt = coalesce(gs_ppt, sum(c_across(m5:m8), na.rm = TRUE)),
-         ann_ppt =coalesce(ann_ppt, sum(c_across(m1:m12), na.rm = TRUE)),
-         gs_ppt_prev = coalesce(gs_ppt_prev, sum(c_across(m5_prev:m8_prev), na.rm = TRUE)),
-         ann_ppt_prev =  coalesce(ann_ppt_prev, sum(c_across(m1_prev:m12_prev), na.rm = TRUE)))
+  mutate(gs_ppt = m5 + m6 + m7 + m8,
+         ann_ppt = m1 + m2 + m3 + m4 + m5 + m6 + m7 + m8 + m9 + m10 + m11 + m12,
+         gs_ppt_prev = m5_prev + m6_prev + m7_prev + m8_prev,
+         ann_ppt_prev = m1_prev + m2_prev + m3_prev + m4_prev + 
+           m5_prev + m6_prev + m7_prev + m8_prev + m9_prev + m10_prev + m11_prev + m12_prev,)
 
 # save and export
 
