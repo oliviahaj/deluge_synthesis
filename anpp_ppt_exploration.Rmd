@@ -94,7 +94,6 @@ googledrive::drive_download(file = names$id, overwrite = T, type = "csv",
 
 # Read in hoover ppt
 names.update <- read.csv(file = file.path("deluge","treatment_codes_byData.csv"))
-
 ```
 
 
@@ -135,20 +134,95 @@ ppt.3 <- ppt.2 %>%
 
 anpp.2 <- anpp %>%
   dplyr::filter(!year %in% c("July-Sept Regrowth 2021","July 2021")) %>%
-  mutate(year = as.integer(ifelse(year == "Sept 2021", "2021", year)))
+  mutate(year = as.integer(ifelse(year == "Sept 2021", "2021", year))) %>%
+  filter(funct_group == "ANPP") %>%
+  group_by(Study_shorthand, year, trt) %>%
+  summarize(mean_ANPP = mean(ANPP), se_ANPP = (sd(ANPP))/(sqrt(n())))
 
 ## JOIN them all
 anpp.ppt <- anpp.2%>%
   left_join(trt) %>%
-  left_join(ppt.3)
-
-str(anpp.ppt)
+  left_join(ppt.3) %>%
+  mutate(ann_ppt_13 = ann_ppt + m9_prev, 
+         ann_ppt_13 = ifelse(year == 2022 & trt == "CON_DEL" & Study_shorthand == "Linabury_ChANGE", ann_ppt_13 + 42, ann_ppt_13))
 ```
 
 ## Start looking at some visuals
 ```{r}
+ggplot(anpp.ppt, aes(ann_ppt_13, mean_ANPP))+
+  geom_point(size=3, aes(color = Study_shorthand)) +
+  theme_bw() +
+  geom_smooth(method="lm") 
+library(car)
+model <- lm(mean_ANPP ~ ann_ppt_13, data = anpp.ppt)
+summary(model)
+
+
+ggplot(anpp.ppt, aes(gs_ppt, mean_ANPP))+
+  geom_point(size=3, aes(color = Study_shorthand)) +
+  theme_bw() +
+  geom_smooth(method="lm") 
+
+ggplot(anpp.ppt, aes(ann_ppt_prev, mean_ANPP))+
+  geom_point(size=3, aes(color = Study_shorthand)) +
+  theme_bw() +
+  geom_smooth(method="lm") 
 
 ```
 
+# RUE
+```{r}
+rue <- anpp.ppt %>%
+  mutate(rue = mean_ANPP/ann_ppt_13, 
+         del = as.numeric(ifelse(trt %in% c("CON", "DR"), "0", "1")))
 
+ggplot(rue, aes(ann_ppt_13, rue))+
+  geom_point(size=3, aes(color = Study_shorthand)) +
+  theme_bw() +
+  geom_smooth(method="lm") +
+  facet_wrap(~timing)
+ggplot(rue, aes(mean_ANPP, rue))+
+  geom_point(size=3, aes(color = Study_shorthand)) +
+  theme_bw() +
+  geom_smooth(method="lm")
+```
+
+# looking at LRR
+```{r}
+con <- rue %>%
+  filter(del == 0) %>%
+  mutate(pairing = str_sub(trt, 1, 2)) %>%
+  select(pairing,ann_ppt_13, Study_shorthand, year, rue, mean_ANPP, se_ANPP) %>%
+  rename(ctrl_anpp = "mean_ANPP", 
+         ctrl_se = "se_ANPP", 
+         ctrl_rue = "rue", 
+         ctrl_ppt = "ann_ppt_13")
+
+trts <-rue %>%
+  filter(del==1) %>%
+  mutate(pairing = str_sub(trt, 1, 2), 
+         pairing = ifelse(pairing == "DR", "DR", "CO")) %>%
+  select(pairing,ann_ppt_13, Study_shorthand, year, rue, mean_ANPP, se_ANPP) %>%
+  rename(del_anpp = "mean_ANPP", 
+         del_se = "se_ANPP", 
+         del_rue = "rue", 
+         del_ppt = "ann_ppt_13")
+
+paired <- left_join(con, trts)
+
+paired.2 <- paired %>%
+  mutate(lrr_anpp = log(del_anpp/ctrl_anpp), 
+         lrr_rue = log(del_rue/ctrl_rue))
+
+ggplot(paired.2, aes(lrr_rue))+
+  geom_histogram()
+
+ggplot(rue, aes(ann_ppt_13, mean_ANPP, color = Study_shorthand))+
+  geom_point()+
+  theme_bw() +
+  facet_wrap(~del)
+  
+model <- lm(data =rue, mean_ANPP ~ ann_ppt_13 + as.factor(del)) 
+summary(model)
+```
 
