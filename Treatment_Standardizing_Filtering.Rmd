@@ -310,46 +310,50 @@ str(SR_recode) # 3613
 str(VWC) # 7627
 str(VWC_recode) # 6003
 
-# export each
-# ANPP
-write.csv(ANPP_recode, "ANPP_filtered.csv", row.names = FALSE)
-
-drive_upload(
-  media = "ANPP_filtered.csv",
-  path = file.path("deluge", "data","R_exports"),
-  name = "ANPP_filtered.csv")
-
-# PRS
-write.csv(PRS_recode, "PRS_filtered.csv", row.names = FALSE)
-
-drive_upload(
-  media = "PRS_filtered.csv",
-  path = file.path("deluge", "data","R_exports"),
-  name = "PRS_filtered.csv")
-
-# GCC
-write.csv(GCC_recode, "GCC_filtered.csv", row.names = FALSE)
-
-drive_upload(
-  media = "GCC_filtered.csv",
-  path = file.path("deluge", "data","R_exports"),
-  name = "GCC_filtered.csv")
-
-# SR
-write.csv(SR_recode, "SR_filtered.csv", row.names = FALSE)
-
-drive_upload(
-  media = "SR_filtered.csv",
-  path = file.path("deluge", "data","R_exports"),
-  name = "SR_filtered.csv")
-
-VWC
-write.csv(VWC_recode, "VWC_20cm_filtered.csv", row.names = FALSE)
-
-drive_upload(
-  media = "VWC_20cm_filtered.csv",
-  path = file.path("deluge", "data","R_exports"),
-  name = "VWC_20cm_filtered.csv")
+# # export each
+# # ANPP
+# write.csv(ANPP_recode, "ANPP_filtered.csv", row.names = FALSE)
+# 
+# drive_upload(
+#   media = "ANPP_filtered.csv",
+#   path = file.path("deluge", "data","R_exports"),
+#   name = "ANPP_filtered.csv",
+#   overwrite = T)
+# 
+# # PRS
+# write.csv(PRS_recode, "PRS_filtered.csv", row.names = FALSE)
+# 
+# drive_upload(
+#   media = "PRS_filtered.csv",
+#   path = file.path("deluge", "data","R_exports"),
+#   name = "PRS_filtered.csv",
+#   overwrite = T)
+# 
+# # GCC
+# write.csv(GCC_recode, "GCC_filtered.csv", row.names = FALSE)
+# 
+# drive_upload(
+#   media = "GCC_filtered.csv",
+#   path = file.path("deluge", "data","R_exports"),
+#   name = "GCC_filtered.csv",
+#   overwrite = T)
+# 
+# # SR
+# write.csv(SR_recode, "SR_filtered.csv", row.names = FALSE)
+# 
+# drive_upload(
+#   media = "SR_filtered.csv",
+#   path = file.path("deluge", "data","R_exports"),
+#   name = "SR_filtered.csv",
+#   overwrite = T)
+# 
+# VWC
+# write.csv(VWC_recode, "VWC_20cm_filtered.csv", row.names = FALSE)
+# 
+# drive_upload(
+#   media = "VWC_20cm_filtered.csv",
+#   path = file.path("deluge", "data","R_exports"),
+#   name = "VWC_20cm_filtered.csv")
 
 ```
 
