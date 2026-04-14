@@ -1,0 +1,154 @@
+---
+title: "PPT-ANPP"
+author: "OLH"
+date: "2026-04"
+output: 
+  bookdown::html_document2:
+    code_folding: hide
+    toc: TRUE
+    toc_depth: 4
+    toc_float: TRUE
+    collapsed: TRUE
+    theme: spacelab
+    fig_caption: TRUE
+    number_sections: FALSE
+---
+# Setup
+<style>h1 {font-size: 24pt; } h2 {font-size: 20pt; } h3 {font-size: 18pt; } h4 {font-size: 16pt; } h5 {font-size: 14pt; } h6 {font-size: 12pt; } </style> 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, dpi = 600, progress = FALSE, cache = FALSE, fig.width=5,  fig.height=3.5, fig.align="center")
+
+options(repos = c(CRAN = "http://cran.rstudio.com"))
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, googledrive, supportR, lubridate)
+
+`%!in%` = Negate(`%in%`)
+
+```
+
+# Create Folders on Desktop
+```{r}
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge", 'data'), showWarnings = F)
+dir.create(file.path("deluge", 'precip_data'), showWarnings = F)
+dir.create(file.path("deluge", 'data', 'R_exports'), showWarnings = F)
+```
+
+# Download ANPP, PPT, and Treatment matching table files
+```{r}
+##### Deluge characteristics
+trt.data <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3")) %>%
+  dplyr::filter(name == "deluge_characteristics_mergeable.csv")
+
+# Did that work?
+trt.data 
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = trt.data$id, overwrite = T, type = "csv",
+                            path = file.path("deluge","data","R_exports", trt.data$name))
+
+# Read in hoover ppt
+trt.data <- read.csv(file = file.path("deluge","data","R_exports", "deluge_characteristics_mergeable.csv"))
+
+
+##### Precip
+ppt <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/18toIfC8jV7s8ZzAD0SV9CWL4SvGgn-RO")) %>%
+  dplyr::filter(name == "precip_data_cleaned_trts.csv")
+
+# Did that work?
+ppt 
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = ppt$id, overwrite = T, type = "csv",
+                            path = file.path("deluge","precip_data", ppt$name))
+
+# Read in hoover ppt
+ppt <- read.csv(file = file.path("deluge","precip_data", "precip_data_cleaned_trts.csv"))
+
+##### ANPP
+anpp <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3")) %>%
+  dplyr::filter(name == "ANPP_filtered.csv")
+
+# Did that work?
+anpp 
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = anpp$id, overwrite = T, type = "csv",
+                            path = file.path("deluge","data","R_exports", anpp$name))
+
+# Read in hoover ppt
+anpp <- read.csv(file = file.path("deluge","data","R_exports", "ANPP_filtered.csv"))
+
+
+# TREATMENT NAME UPDaTE
+names <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1fpoG0wLLqjFLkucR2ZlNMon31DIW1GH-")) %>%
+  dplyr::filter(name == "treatment_codes_byData")
+
+# Did that work?
+names 
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = names$id, overwrite = T, type = "csv",
+                            path = file.path("deluge", names$name))
+
+# Read in hoover ppt
+names.update <- read.csv(file = file.path("deluge","treatment_codes_byData.csv"))
+
+```
+
+
+# Clean and merge data
+
+```{r}
+# 1) fix/update treatment names on the precip data
+names.update  <- names.update %>%
+  filter(raw_filename == "precip_data_cleaned_trts.csv") %>%
+  rename(Study = "Full.Study", 
+         Treatment_raw = "trt_names") %>%
+  select(c(Study, Study_shorthand, Our_trt, Treatment_raw)) %>%
+  mutate(across(where(is.character), ~gsub("\u00A0", " ", .x)))
+
+ppt.2 <- ppt %>%
+  mutate(across(c(Study, Treatment_raw), str_trim)) %>%
+  left_join(
+    names.update, #%>% mutate(across(c(Study, Treatment_raw), str_trim)),
+    by = c("Study", "Treatment_raw")
+  )
+
+## Merge with ANPP and deluge data
+# str(anpp)
+# str(ppt.2)
+# str(trt.data)
+
+trt <- trt.data %>%
+  # 1. Remove rows where every cell is NA OR a blank string ""
+  filter(!if_all(everything(), ~ is.na(.x) | .x == "")) %>%
+  
+  # 2. Remove columns where every cell is NA OR a blank string ""
+  select(where(~ !all(is.na(.x) | .x == "")))
+
+
+ppt.3 <- ppt.2 %>%
+  select(-c(Study, Treatment_raw)) %>%
+  rename(trt = "Our_trt")
+
+anpp.2 <- anpp %>%
+  dplyr::filter(!year %in% c("July-Sept Regrowth 2021","July 2021")) %>%
+  mutate(year = as.integer(ifelse(year == "Sept 2021", "2021", year)))
+
+## JOIN them all
+anpp.ppt <- anpp.2%>%
+  left_join(trt) %>%
+  left_join(ppt.3)
+
+str(anpp.ppt)
+```
+
+## Start looking at some visuals
+```{r}
+
+```
+
+
+
