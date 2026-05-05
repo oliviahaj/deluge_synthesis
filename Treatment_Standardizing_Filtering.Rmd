@@ -72,8 +72,6 @@ lapply(cce.list, str)
 ## Check unique treatment names in each file — adjust "treatment" to your actual column name
 lapply(cce.list, function(df) unique(df$treatment))
 
-
-
 ```
 
 
@@ -81,20 +79,20 @@ lapply(cce.list, function(df) unique(df$treatment))
 ### for merged files
 
 ```{r read in selected treatments file}
-# read in the selected treatments file
-trts <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1fpoG0wLLqjFLkucR2ZlNMon31DIW1GH-")) %>%
-  dplyr::filter(name == "selected_treatments")
-
-# Did that work?
-trts
-
-# Download the excluded treatment file
-googledrive::drive_download(file = trts$id, overwrite = T, type = "csv",
-                            path = file.path("deluge", trts$name))
-
-# Read in excluded treatment file
-excl_trt <- read.csv(file = file.path("deluge", "selected_treatments.csv"))
-str(excl_trt)
+# # read in the selected treatments file
+# trts <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1fpoG0wLLqjFLkucR2ZlNMon31DIW1GH-")) %>%
+#   dplyr::filter(name == "selected_treatments")
+# 
+# # Did that work?
+# trts
+# 
+# # Download the excluded treatment file
+# googledrive::drive_download(file = trts$id, overwrite = T, type = "csv",
+#                             path = file.path("deluge", trts$name))
+# 
+# # Read in excluded treatment file
+# excl_trt <- read.csv(file = file.path("deluge", "selected_treatments.csv"))
+# str(excl_trt)
 
 ```
 
@@ -211,7 +209,7 @@ GCC_recode <- GCC %>%
                                              "Deluge"~"CON_DEL", "Drought-Deluge"~"DR_DEL"),
     Study_shorthand == "Condon_SL" ~ recode_values(trt, "amb"~"CON", "amb w/ deluge"~"CON_DEL"),
     Study_shorthand == "Hajek2024" ~ recode_values(trt, "OCT"~"OCT_DEL", "SEP"~"SEP_DEL", "AMB"~"CON"),
-    Study_shorthand == "Hoover2022_CPER_DEX" ~ recode_values(trt, "DRT+DEL"~"DR_DEL", "DRT"~"DR"),
+    Study_shorthand == "Hoover2022" ~ recode_values(trt, "DRT+DEL"~"DR_DEL", "DRT"~"DR"),
     Study_shorthand == "Linabury_ChANGE" ~ recode_values(trt, "control"~"CON", "deluge"~"CON_DEL"),
     Study_shorthand == "Post2020" ~ recode_values(trt, "A"~"EARLY_DEL", "B"~"MID_DEL", 
                                                   "C"~"LATE_DEL", "D"~"CON"),
@@ -243,7 +241,7 @@ SR_recode <- SR %>%
                                              "Deluge"~"CON_DEL", "Drought-Deluge"~"DR_DEL"),
     Study_shorthand == "Condon_SL" ~ recode_values(trt, "amb"~"CON", "amb w/ deluge"~"CON_DEL"),
     Study_shorthand == "Hajek2024" ~ recode_values(trt, "OCT"~"OCT_DEL", "SEP"~"SEP_DEL", "AMB"~"CON"),
-    Study_shorthand == "Hoover2022_CPER_DEX" ~ recode_values(trt, "4"~"DR_DEL", "3"~"DR"),
+    Study_shorthand == "Hoover2022" ~ recode_values(trt, "4"~"DR_DEL", "3"~"DR"),
     Study_shorthand == "Post2020" ~ recode_values(trt, "A"~"EARLY_DEL", "B"~"MID_DEL", 
                                                   "C"~"LATE_DEL", "D"~"CON"),
     Study_shorthand == "Post2021" ~ recode_values(trt, "A"~"CON", "B"~"DEL_20", "C"~"DEL_40",
@@ -271,7 +269,7 @@ VWC_recode <- VWC %>%
                                              "Deluge"~"CON_DEL", "Drought-Deluge"~"DR_DEL"),
     Study_shorthand == "Condon_SL" ~ recode_values(trt, "amb"~"CON", "amb w/ deluge"~"CON_DEL"),
     Study_shorthand == "Hajek2024" ~ recode_values(trt, "OCT"~"OCT_DEL", "SEP"~"SEP_DEL", "AMB"~"CON"),
-    Study_shorthand == "Hoover2022_CPER_DEX" ~ recode_values(trt, "DRT+DEL"~"DR_DEL", "DRT"~"DR"),
+    Study_shorthand == "Hoover2022" ~ recode_values(trt, "DRT+DEL"~"DR_DEL", "DRT"~"DR"),
     Study_shorthand == "Linabury_ChANGE" ~ recode_values(trt, "control"~"CON", "deluge"~"CON_DEL"),
     Study_shorthand == "Post2020" ~ recode_values(trt, "A"~"EARLY_DEL", "B"~"MID_DEL", 
                                                   "C"~"LATE_DEL", "D"~"CON"),
@@ -309,51 +307,52 @@ str(SR_recode) # 3613
 
 str(VWC) # 7627
 str(VWC_recode) # 6003
+# view(VWC_recode)
 
-# # export each
-# # ANPP
-# write.csv(ANPP_recode, "ANPP_filtered.csv", row.names = FALSE)
-# 
-# drive_upload(
-#   media = "ANPP_filtered.csv",
-#   path = file.path("deluge", "data","R_exports"),
-#   name = "ANPP_filtered.csv",
-#   overwrite = T)
-# 
-# # PRS
-# write.csv(PRS_recode, "PRS_filtered.csv", row.names = FALSE)
-# 
-# drive_upload(
-#   media = "PRS_filtered.csv",
-#   path = file.path("deluge", "data","R_exports"),
-#   name = "PRS_filtered.csv",
-#   overwrite = T)
-# 
-# # GCC
-# write.csv(GCC_recode, "GCC_filtered.csv", row.names = FALSE)
-# 
-# drive_upload(
-#   media = "GCC_filtered.csv",
-#   path = file.path("deluge", "data","R_exports"),
-#   name = "GCC_filtered.csv",
-#   overwrite = T)
-# 
-# # SR
-# write.csv(SR_recode, "SR_filtered.csv", row.names = FALSE)
-# 
-# drive_upload(
-#   media = "SR_filtered.csv",
-#   path = file.path("deluge", "data","R_exports"),
-#   name = "SR_filtered.csv",
-#   overwrite = T)
-# 
+# export each
+# ANPP
+write.csv(ANPP_recode, "ANPP_filtered.csv", row.names = FALSE)
+
+drive_upload(
+  media = "ANPP_filtered.csv",
+  path = file.path("deluge", "data","R_exports"),
+  name = "ANPP_filtered.csv",
+  overwrite = T)
+
+# PRS
+write.csv(PRS_recode, "PRS_filtered.csv", row.names = FALSE)
+
+drive_upload(
+  media = "PRS_filtered.csv",
+  path = file.path("deluge", "data","R_exports"),
+  name = "PRS_filtered.csv",
+  overwrite = T)
+
+# GCC
+write.csv(GCC_recode, "GCC_filtered.csv", row.names = FALSE)
+
+drive_upload(
+  media = "GCC_filtered.csv",
+  path = file.path("deluge", "data","R_exports"),
+  name = "GCC_filtered.csv",
+  overwrite = T)
+
+# SR
+write.csv(SR_recode, "SR_filtered.csv", row.names = FALSE)
+
+drive_upload(
+  media = "SR_filtered.csv",
+  path = file.path("deluge", "data","R_exports"),
+  name = "SR_filtered.csv",
+  overwrite = T)
+
 # VWC
-# write.csv(VWC_recode, "VWC_20cm_filtered.csv", row.names = FALSE)
-# 
-# drive_upload(
-#   media = "VWC_20cm_filtered.csv",
-#   path = file.path("deluge", "data","R_exports"),
-#   name = "VWC_20cm_filtered.csv")
+write.csv(VWC_recode, "VWC_20cm_filtered.csv", row.names = FALSE)
+
+drive_upload(
+  media = "VWC_20cm_filtered.csv",
+  path = file.path("deluge", "data","R_exports"),
+  name = "VWC_20cm_filtered.csv")
 
 ```
 
