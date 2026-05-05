@@ -168,7 +168,7 @@ head(Hajek,5)
 Hajek_24<-Hajek%>%
   rename(trt=Trt,plot=Plot)%>%
   mutate(Study_shorthand="Hajek2024",
-         year="2024",
+         year="2022",
          C3=C3*10,
          C4=C4*10,
          FORB=Forb*10,
@@ -223,7 +223,7 @@ head(Post20,5)
 Post2020<-Post20%>%
   rename(trt=Trt,plot=Plot)%>%
   mutate(Study_shorthand="Post2020",
-         year="2020",
+         year="2017",
          GRASS=Grass_total*10,
          FORB=Forb_mass*10,
          ANPP=Total_biomass*10)%>%
@@ -247,7 +247,7 @@ head(Post20,5)
 Post2020_BNPP<-Post20%>%
   rename(trt=Trt,plot=Plot,depth=Depth)%>%
   mutate(Study_shorthand="Post2020",
-         year="2020")%>%
+         year="2017")%>%
   select(Study_shorthand,year,plot,trt,depth,BNPP)%>%
   group_by(Study_shorthand,year,trt,plot)%>% # sum depths together (t = top, b = bottom)
   dplyr::summarise(
@@ -282,7 +282,7 @@ head(Post21,5)
 Post2021<-Post21%>%
   rename(trt=Trt,plot=Plot)%>%
   mutate(Study_shorthand="Post2021",
-         year="2021",
+         year="2018",
          GRASS=Grass_total*10,
          FORB=Forb_mass*10,
          ANPP=Total_biomass*10)%>%
@@ -307,7 +307,7 @@ head(Post21,5)
 Post2021_BNPP<-Post21%>%
   rename(trt=Trt,plot=Plot,depth=Depth)%>%
   mutate(Study_shorthand="Post2021",
-         year="2021")%>%
+         year="2018")%>%
   select(Study_shorthand,year,plot,trt,depth,BNPP)%>%
   group_by(Study_shorthand,year,trt,plot)%>% # sum depths together (T/M/B - top, middle, bottom)
   dplyr::summarise(
@@ -341,7 +341,7 @@ head(Hoover2022_CPER_DEX,5)
 Hoover2022<-Hoover2022_CPER_DEX%>%
   rename(trt=treatment,ANPP=anpp,BNPP=bnpp)%>%
   mutate(Study_shorthand="Hoover2022_CPER_DEX",
-         year="2022")%>%
+         year="2019")%>%
   select(Study_shorthand,plot,trt,year,ANPP,BNPP)
 
 head(Hoover2022,5)
@@ -408,12 +408,13 @@ head(ANPP_BNPP_harmonized,5)
 ```{r export to drive}
 # Export and write to the drives
 # Save your data frame locally first
-# write.csv(ANPP_BNPP_harmonized, "ANPP_harmonized.csv", row.names = FALSE)
+write.csv(ANPP_BNPP_harmonized, "ANPP_harmonized.csv", row.names = FALSE)
 
-# drive_upload(
-#   media = "ANPP_harmonized.csv",
-#   path = file.path("deluge", "data","R_exports"),
-#   name = "ANPP_harmonized.csv")
+drive_upload(
+  media = "ANPP_harmonized.csv",
+  path = file.path("deluge", "data","R_exports"),
+  name = "ANPP_harmonized.csv",
+  overwrite=T)
 ```
 
 

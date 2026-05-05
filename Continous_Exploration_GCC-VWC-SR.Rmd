@@ -72,23 +72,27 @@ str(VWC)
 SR<-read.csv("deluge/data/SR_filtered.csv")
 str(SR)
 
-#### merge w/ deluge characteristics
+#### set up deluge characteristics data to merge with
 del.info<-read.csv("deluge/data/deluge_characteristics_mergeable.csv")
-str(del.info)
+view(del.info)
 ```
 
-```{r daily over gs}
+```{r fix rest of data for merge}
 # dat<-GCC%>%
 #   mutate(var=as.numeric(GCC))
-# x.lab="GCC"
+# y.lab="GCC"
+# view(GCC)
+# full.merge.dat.name<-"GCC_del"
 
 dat<-VWC%>%
   mutate(var=as.numeric(VWC))
-x.lab="VWC (20cm)"
+y.lab="VWC (20cm)"
+full.merge.dat.name<-"VWC_del"
 
 # dat<-SR%>%
 #   mutate(var=as.numeric(efflux))
 # y.lab="Efflux"
+# full.merge.dat.name<-"SR_del"
 
 str(dat)
 
@@ -117,14 +121,20 @@ head(daily.avs,5)
 merge.daily<-merge(daily.avs,del.info,by=c("Study_shorthand","year","trt"))
 head(merge.daily,5)
 
+merge.daily<-merge.dat.name
+
 daily<-merge.daily%>%
   mutate(doy.date=yday(new.date),
          del_start=as.Date(del_start,format="%m/%d/%y"),
          del_end=as.Date(del_end,format="%m/%d/%y"))
 
+view(daily)
+```
+
+```{r graphing deluges}
 ## graph 
 ggplot(daily,aes(x=doy.date,y=av,group=trt,linetype=trt_type,color=Study_trt)) +
-  geom_rect(aes(xmin=yday(del_start),xmax=yday(del_end),ymin=-Inf,ymax=Inf),color=NA,fill="lightblue")+
+  geom_rect(aes(xmin=yday(del_start),xmax=yday(del_end),ymin=-Inf,ymax=Inf),color="lightblue",fill="lightblue",linetype="solid")+
   geom_line() +
   geom_point() +
   geom_errorbar(aes(ymin=av-SE, ymax=av+SE), width=0.2) +
@@ -135,10 +145,8 @@ ggplot(daily,aes(x=doy.date,y=av,group=trt,linetype=trt_type,color=Study_trt)) +
     y=y.lab,
     linetype="Treatment")+
   theme_bw()+
-  theme(legend.position="bottom")+
-  scale_color_d3(palette = "category20")
+  theme(legend.position="bottom")
 
-### add deluge dates vertical lines on all
 ```
 
 
