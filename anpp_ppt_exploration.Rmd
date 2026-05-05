@@ -96,6 +96,18 @@ googledrive::drive_download(file = names$id, overwrite = T, type = "csv",
 names.update <- read.csv(file = file.path("deluge","treatment_codes_byData.csv"))
 ```
 
+# prelim ANPP data viz
+```{r}
+str(anpp)
+anpp.tot <- anpp %>%
+  filter(funct_group == "ANPP")
+ggplot(anpp.tot, aes(year, ANPP, color = Study_shorthand))+
+  geom_jitter(alpha = 0.6)+
+  theme_bw()+
+  ylim(0, 300)
+
+```
+
 
 # Clean and merge data
 
@@ -181,10 +193,12 @@ ggplot(rue, aes(ann_ppt_13, rue))+
   theme_bw() +
   geom_smooth(method="lm") +
   facet_wrap(~timing)
+
 ggplot(rue, aes(mean_ANPP, rue))+
   geom_point(size=3, aes(color = Study_shorthand)) +
   theme_bw() +
   geom_smooth(method="lm")
+
 ```
 
 # looking at LRR
@@ -192,7 +206,8 @@ ggplot(rue, aes(mean_ANPP, rue))+
 con <- rue %>%
   filter(del == 0) %>%
   mutate(pairing = str_sub(trt, 1, 2)) %>%
-  select(pairing,ann_ppt_13, Study_shorthand, year, rue, mean_ANPP, se_ANPP) %>%
+  mutate(spring_ppt = m4 + m5 + m6) %>%
+  select(pairing,ann_ppt_13, Study_shorthand, year, spring_ppt, rue, mean_ANPP, se_ANPP) %>%
   rename(ctrl_anpp = "mean_ANPP", 
          ctrl_se = "se_ANPP", 
          ctrl_rue = "rue", 
@@ -202,7 +217,7 @@ trts <-rue %>%
   filter(del==1) %>%
   mutate(pairing = str_sub(trt, 1, 2), 
          pairing = ifelse(pairing == "DR", "DR", "CO")) %>%
-  select(pairing,ann_ppt_13, Study_shorthand, year, rue, mean_ANPP, se_ANPP) %>%
+  select(pairing,ann_ppt_13, Study_shorthand, year, rue, timing, mean_ANPP, se_ANPP) %>%
   rename(del_anpp = "mean_ANPP", 
          del_se = "se_ANPP", 
          del_rue = "rue", 
@@ -212,10 +227,14 @@ paired <- left_join(con, trts)
 
 paired.2 <- paired %>%
   mutate(lrr_anpp = log(del_anpp/ctrl_anpp), 
-         lrr_rue = log(del_rue/ctrl_rue))
+         lrr_rue = log(del_rue/ctrl_rue), 
+         del_size = del_ppt - ctrl_ppt)
 
 ggplot(paired.2, aes(lrr_rue))+
   geom_histogram()
+
+ggplot(paired.2, aes(del_size, lrr_anpp, color = Study_shorthand))+
+  geom_point()
 
 ggplot(rue, aes(ann_ppt_13, mean_ANPP, color = Study_shorthand))+
   geom_point()+
@@ -224,5 +243,139 @@ ggplot(rue, aes(ann_ppt_13, mean_ANPP, color = Study_shorthand))+
   
 model <- lm(data =rue, mean_ANPP ~ ann_ppt_13 + as.factor(del)) 
 summary(model)
+```
+
+# Going to do a meta-regression looking at the LRR ~ deluge_size + deviation of spring precip (Apr-May-June) from LTA + timing + (1|year/location)
+
+```{r}
+# 1 read in the long-term data precip
+lta <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/18toIfC8jV7s8ZzAD0SV9CWL4SvGgn-RO")) %>%
+  dplyr::filter(name == "EDGE_MS_full_NOAA_EDGE_precipitation.csv")
+
+# Did that work?
+lta
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = lta$id, overwrite = T, type = "csv",
+                            path = file.path("deluge","precip_data", lta$name))
+
+# Read in hoover ppt
+lta <- read.csv(file = file.path("deluge","precip_data", "EDGE_MS_full_NOAA_EDGE_precipitation.csv"))
+
+lta2 <- lta %>%
+  filter(Site == "SGS") %>%
+  filter(amb_drought == "amb_adjusted") %>%
+  select(DATE, daily.tot) %>%
+  mutate(DATE = as.Date(DATE, format = "%Y-%m-%d"), 
+         year = year(DATE), 
+         month = month(DATE)) %>%
+  group_by(year, month) %>%
+  filter(month %in% c(4,5,6)) %>%
+  summarize(monthly_ppt = sum(daily.tot)) %>%
+  ungroup()%>%
+  filter(month %in% c(4,5,6)) %>%
+  group_by(month) %>%
+  summarize(monthly_average = mean(monthly_ppt)) 
+
+lta_mean <- 36.47203 + 59.60872 + 47.97409
+
+ggplot(lta2, aes(year, spring_ppt))+
+  geom_point()+geom_line()+
+  theme_bw()
+  
+```
+
+# get the model together
+
+```{r}
+
+# 2 set up model
+library(lmerTest)
+library(lme4)
+library(car)        # for Type III ANOVA and VIF
+library(performance) # convenient assumption checks
+library(DHARMa)  
+
+paired.2$lta_spring <- lta_mean
+
+paired.3 <- paired.2 %>%
+  mutate(spring_dev = spring_ppt - lta_spring,
+         timing = as.factor(timing), 
+         location = as.factor(case_when(
+           Study_shorthand == "CCE" ~ "CCE", 
+           Study_shorthand == "Linabury_ChANGE" ~ "CHANGE",
+           TRUE ~ "DEX"
+         )), 
+         year = as.factor(year)
+  ) %>%
+  filter(Study_shorthand != "Linabury_ChANGE")
+
+
+fall <- paired.3 %>%
+  filter(timing == "fall")
+
+gs <- paired.3 %>%
+  filter(timing != "fall")
+
+ggplot(gs, aes(spring_dev, lrr_anpp, color = Study_shorthand))+
+  geom_point(size =2)+
+  theme_bw()
+
+ggplot(paired.3, aes(timing, lrr_anpp, color = Study_shorthand))+
+  geom_point()+
+  theme_bw()
+
+ggplot(paired.3, aes(del_size, lrr_anpp, color = Study_shorthand))+
+  geom_point()+
+  theme_bw()
+
+
+
+model_lrr <- lmer(data = gs, lrr_anpp ~  spring_dev + del_size + (1|location) + (1|year))
+summary(model_lrr)
+
+
+# --- ANOVA on fixed effects ---
+# If you loaded lmerTest before fitting, anova() uses Satterthwaite df by default
+anova(model_lrr)
+
+# Type III ANOVA (use if you have interactions or want marginal tests)
+anova(model_lrr, type = 3, ddf = "Kenward-Roger")
+
+# car::Anova is another option
+Anova(model_lrr, type = "III", test.statistic = "F")
+
+# Significance test of the random effects (likelihood ratio test)
+ranova(model_lrr)
+
+# --- Assumption checks ---
+
+# Residuals vs fitted (linearity, homoscedasticity)
+plot(model_lrr)
+
+# QQ plot of residuals (normality of residuals)
+qqnorm(resid(model_lrr)); qqline(resid(model_lrr))
+
+# QQ plots of random effects (normality of random intercepts)
+lattice::qqmath(ranef(model_lrr))
+
+# Scale-location plot (homoscedasticity)
+plot(model_lrr, sqrt(abs(resid(.))) ~ fitted(.),
+     type = c("p", "smooth"))
+
+# Residuals vs each fixed-effect predictor (look for missed nonlinearity)
+plot(model_lrr, resid(.) ~ del_size)
+plot(model_lrr, resid(.) ~ spring_dev)
+plot(model_lrr, resid(., type = "pearson") ~ timing)
+
+# Multicollinearity among fixed effects
+vif(model_lrr)
+
+# 3. DHARMa simulation-based residuals (more robust than QQ-eyeballing)
+sim_res <- simulateResiduals(model_lrr)
+plot(sim_res)
+testResiduals(sim_res)   # tests uniformity, dispersion, outliers
+
+
 ```
 
