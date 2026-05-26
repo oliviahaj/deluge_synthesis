@@ -158,6 +158,9 @@ full.merge.wide<-full.merge.wide%>%
 
 # view(full.merge.wide)
 
+######## NEXT STEPS ########
+# continuing with full.merge.wide from above, think about good way to organize table or use "del_response" column to highlight on graph when consecutive days remaining different ends--define as deluge response period length for each
+
 ```
 
 ```{r graphing deluges}
