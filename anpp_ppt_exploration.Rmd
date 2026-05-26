@@ -270,19 +270,21 @@ lta2 <- lta %>%
          year = year(DATE), 
          month = month(DATE)) %>%
   group_by(year, month) %>%
-  filter(month %in% c(4,5,6)) %>%
+  #filter(month %in% c(4,5,6)) %>%
   summarize(monthly_ppt = sum(daily.tot)) %>%
   ungroup()%>%
   filter(month %in% c(4,5,6)) %>%
   group_by(month) %>%
   summarize(monthly_average = mean(monthly_ppt)) 
 
-lta_mean <- 36.47203 + 59.60872 + 47.97409
+lta_mean_spring <- 36.47203 + 59.60872 + 47.97409
 
-ggplot(lta2, aes(year, spring_ppt))+
-  geom_point()+geom_line()+
-  theme_bw()
-  
+# ggplot(lta2, aes(year, spring_ppt))+
+#   geom_point()+geom_line()+
+#   theme_bw()
+#   
+
+MAP <- sum(lta2$monthly_average, na.rm = TRUE)
 ```
 
 # get the model together
@@ -375,6 +377,31 @@ vif(model_lrr)
 sim_res <- simulateResiduals(model_lrr)
 plot(sim_res)
 testResiduals(sim_res)   # tests uniformity, dispersion, outliers
+
+
+```
+
+
+# Making a summary of the precipitation tables
+* Want to know MAP (Water-year? sept-sept? I think water-year except for the fall deluges) and then could have an asterisk
+* Question - are Greg's DR treatments just those iwht the drought legacy?
+* early season conditions in general correspond well with the year (91.5 R2 with a correlation)
+
+```{r}
+# Just going to select the controls - DR or CON
+ppt.cons <- ppt.3 %>%
+  filter(trt %in% c("CON", "DR")) %>%
+  mutate(MAP = MAP, 
+         diff_LTA = ann_ppt - MAP, 
+         early_season_lta = lta_mean_spring, 
+         early_season = m4 + m5 + m6, 
+         early_season_diff = early_season - early_season_lta) %>%
+  select(Study_shorthand, year, trt, diff_LTA)
+
+
+ggplot(ppt.cons, aes(diff_LTA, early_season_diff))+
+  geom_point()
+cor(ppt.cons$diff_LTA, ppt.cons$early_season_diff)
 
 
 ```
