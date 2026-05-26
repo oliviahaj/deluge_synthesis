@@ -78,21 +78,18 @@ view(del.info)
 ```
 
 ```{r fix rest of data for merge}
-dat<-GCC%>%
-  mutate(var=as.numeric(GCC))
-y.lab="GCC"
+# dat<-GCC%>%
+#   mutate(var=as.numeric(GCC))
+# y.lab="GCC"
 # view(GCC)
-# full.merge.dat.name<-"GCC_del"
 
-# dat<-VWC%>%
-#   mutate(var=as.numeric(VWC))
-# y.lab="VWC (20cm)"
-# full.merge.dat.name<-"VWC_del"
+dat<-VWC%>%
+  mutate(var=as.numeric(VWC))
+y.lab="VWC (20cm)"
 
 # dat<-SR%>%
 #   mutate(var=as.numeric(efflux))
 # y.lab="Efflux"
-# full.merge.dat.name<-"SR_del"
 
 str(dat)
 
@@ -125,27 +122,41 @@ head(merge.daily,5)
 daily<-merge.daily%>%
   mutate(doy.date=yday(new.date),
          del_start=as.Date(del_start,format="%m/%d/%y"),
-         del_end=as.Date(del_end,format="%m/%d/%y"))
+         del_end=as.Date(del_end,format="%m/%d/%y"))%>%
+  mutate(background=case_when(
+    Study_shorthand %in% c("CCE","Tooley_DRE") & trt_type=="DEL" ~ str_remove(as.character(trt),"_DEL$"),
+    Study_shorthand %in% c("CCE","Tooley_DRE") & trt_type=="CON"~as.character(trt)))
 
-view(daily)
+# view(daily)
 
 # make columns side-by-side control (duplicated when needed) & deluge treatments
-## split into control and deluge data frames
+### split into control and deluge data frames
 con_daily<-daily%>%
   filter(trt_type=="CON")%>%
-  select(Study_shorthand,year,trt,new.date,plots.per.trt,CON_av=av,CON_sd=sd,CON_SE=SE,)
+  select(Study_shorthand,year,new.date,CON_type=Study_trt,CON_n=plots.per.trt,CON_av=av,CON_sd=sd,CON_SE=SE,doy.date,background)
 
 del_daily<-daily%>%
   filter(trt_type=="DEL")%>%
-  select()
+  select(Study_shorthand,year,new.date,DEL_type=Study_trt,DEL_n=plots.per.trt,DEL_av=av,DEL_sd=sd,DEL_SE=SE,del_start,del_end,doy.date,background)
 
-## join to make a wide df (don't use pivot_wider b/c going to be hard to duplicate right and check NA's, etc.)
+### merge to make a wide df (don't use pivot_wider b/c going to be hard to duplicate right and check NA's, etc.)
+full.merge.wide<-merge(con_daily,del_daily,by=c("Study_shorthand","year","new.date","doy.date","background"),all=TRUE)
+view(full.merge.wide)
 
+### check missing dates that were not matched
+full.merge.check<-full.merge.wide%>%
+  filter(is.na(CON_av) | is.na(DEL_av))
+full.merge.check
 
+# CALCULATE WITHIN 20%
+full.merge.wide<-full.merge.wide%>%
+  mutate(perc_diff=((DEL_av-CON_av)/CON_av)*100)%>%
+  mutate(del_response=case_when(
+    perc_diff < -20 ~ "NEGATIVE",
+    perc_diff >= 20 ~ "POSITIVE"))%>%
+  select(Study_shorthand,year,new.date,del_start,del_end,doy.date,CON_type,DEL_type,CON_n,DEL_n,CON_av,DEL_av,perc_diff,del_response)
 
-daily.wide<-daily%>%
-  group_by(Study_shorthand,trt_type)%>%
-  pivot_wider(names_from=trt_type,cols=c("av","sd","SE"),values_from="av")
+view(full.merge.wide)
 
 ```
 
