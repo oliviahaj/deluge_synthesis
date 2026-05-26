@@ -78,16 +78,16 @@ view(del.info)
 ```
 
 ```{r fix rest of data for merge}
-# dat<-GCC%>%
-#   mutate(var=as.numeric(GCC))
-# y.lab="GCC"
+dat<-GCC%>%
+  mutate(var=as.numeric(GCC))
+y.lab="GCC"
 # view(GCC)
 # full.merge.dat.name<-"GCC_del"
 
-dat<-VWC%>%
-  mutate(var=as.numeric(VWC))
-y.lab="VWC (20cm)"
-full.merge.dat.name<-"VWC_del"
+# dat<-VWC%>%
+#   mutate(var=as.numeric(VWC))
+# y.lab="VWC (20cm)"
+# full.merge.dat.name<-"VWC_del"
 
 # dat<-SR%>%
 #   mutate(var=as.numeric(efflux))
@@ -121,7 +121,6 @@ head(daily.avs,5)
 merge.daily<-merge(daily.avs,del.info,by=c("Study_shorthand","year","trt"))
 head(merge.daily,5)
 
-merge.daily<-merge.dat.name
 
 daily<-merge.daily%>%
   mutate(doy.date=yday(new.date),
@@ -129,6 +128,25 @@ daily<-merge.daily%>%
          del_end=as.Date(del_end,format="%m/%d/%y"))
 
 view(daily)
+
+# make columns side-by-side control (duplicated when needed) & deluge treatments
+## split into control and deluge data frames
+con_daily<-daily%>%
+  filter(trt_type=="CON")%>%
+  select(Study_shorthand,year,trt,new.date,plots.per.trt,CON_av=av,CON_sd=sd,CON_SE=SE,)
+
+del_daily<-daily%>%
+  filter(trt_type=="DEL")%>%
+  select()
+
+## join to make a wide df (don't use pivot_wider b/c going to be hard to duplicate right and check NA's, etc.)
+
+
+
+daily.wide<-daily%>%
+  group_by(Study_shorthand,trt_type)%>%
+  pivot_wider(names_from=trt_type,cols=c("av","sd","SE"),values_from="av")
+
 ```
 
 ```{r graphing deluges}
@@ -146,6 +164,12 @@ ggplot(daily,aes(x=doy.date,y=av,group=trt,linetype=trt_type,color=Study_trt)) +
     linetype="Treatment")+
   theme_bw()+
   theme(legend.position="bottom")
+
+```
+
+```{r monthly}
+
+
 
 ```
 
