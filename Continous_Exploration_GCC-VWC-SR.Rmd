@@ -141,7 +141,7 @@ del_daily<-daily%>%
 
 ### merge to make a wide df (don't use pivot_wider b/c going to be hard to duplicate right and check NA's, etc.)
 full.merge.wide<-merge(con_daily,del_daily,by=c("Study_shorthand","year","new.date","doy.date","background"),all=TRUE)
-view(full.merge.wide)
+# view(full.merge.wide)
 
 ### check missing dates that were not matched
 full.merge.check<-full.merge.wide%>%
@@ -156,7 +156,7 @@ full.merge.wide<-full.merge.wide%>%
     perc_diff >= 20 ~ "POSITIVE"))%>%
   select(Study_shorthand,year,new.date,del_start,del_end,doy.date,CON_type,DEL_type,CON_n,DEL_n,CON_av,DEL_av,perc_diff,del_response)
 
-view(full.merge.wide)
+# view(full.merge.wide)
 
 ```
 
