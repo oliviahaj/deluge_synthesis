@@ -78,85 +78,119 @@ view(del.info)
 ```
 
 ```{r fix rest of data for merge}
-# dat<-GCC%>%
-#   mutate(var=as.numeric(GCC))
-# y.lab="GCC"
-# view(GCC)
+GCC.dat<-GCC%>%
+  mutate(var=as.numeric(GCC))
 
-dat<-VWC%>%
+VWC.dat<-VWC%>%
   mutate(var=as.numeric(VWC))
-y.lab="VWC (20cm)"
 
-# dat<-SR%>%
-#   mutate(var=as.numeric(efflux))
-# y.lab="Efflux"
+SR.dat<-SR%>%
+  mutate(var=as.numeric(efflux))
 
-str(dat)
+con.dat<-list(VWC.dat,GCC.dat,SR.dat)
+con.labels<-list("20 cm VWC (%)","GCC","Efflux")
+```
 
-cleanup.dat<-dat%>%
-  mutate(new.date=as.Date(date,format="%Y-%m-%d"),
+```{r loop continuous data manipulations}
+# Make a for loop to clean and average data
+### set empty list for output of changed data
+con.raw.adj<-list()
+con.av.adj<-list()
+
+con.merge<-list()
+con.merge.check<-list()
+
+
+### check lists
+lapply(con.dat,head,5)
+con.labels
+
+### cleanup and average data
+for (i in seq_along(con.dat)){
+  dat<-con.dat[[i]] # get first dataframe from list
+  y.lab<-con.labels[[i]] # get matching y-axis label from list of labels
+  
+  # make data adjustments
+  cleanup.dat<-dat%>%
+    mutate(new.date=as.Date(date,format="%Y-%m-%d"),
          trt=factor(trt),
          Study_shorthand=factor(Study_shorthand))%>%
-  mutate(year=year(new.date),
+    mutate(year=year(new.date),
          mon=month(new.date))
-
-str(cleanup.dat)
-
-daily.avs<-cleanup.dat%>%
-  group_by(Study_shorthand,new.date,year,trt)%>%
-  filter(!is.na(var))%>%
-  dplyr::summarise(
-    plots.per.trt=n(),
-    av=mean(var),
-    sd=sd(var),
-    SE=sd/sqrt(plots.per.trt))%>%
+  # save 
+  con.raw.adj[[i]]<-cleanup.dat
+  
+  # get DAILY AVERAGES (collapse plots down to one value per trt per day)
+  daily.avs<-cleanup.dat%>%
+    group_by(Study_shorthand,new.date,year,trt)%>%
+    filter(!is.na(var))%>%
+    dplyr::summarise(
+      plots.per.trt=n(),
+      av=mean(var),
+      sd=sd(var),
+      SE=sd/sqrt(plots.per.trt))%>%
   mutate(trt_type=if_else(grepl("DEL",trt),"DEL","CON"))%>%
   mutate(Study_trt=paste(Study_shorthand,trt,sep=": "))
-
-head(daily.avs,5)
-
-merge.daily<-merge(daily.avs,del.info,by=c("Study_shorthand","year","trt"))
-head(merge.daily,5)
-
-
-daily<-merge.daily%>%
+  
+  # add in deluge characteristics info
+  merge.daily<-merge(daily.avs,del.info,by=c("Study_shorthand","year","trt"))
+  head(merge.daily,5)
+  
+  # cleanup dates again and split out Alex and Greg (paired controls DR with DR+DEL and CON with CON+DEL)
+  daily<-merge.daily%>%
   mutate(doy.date=yday(new.date),
          del_start=as.Date(del_start,format="%m/%d/%y"),
          del_end=as.Date(del_end,format="%m/%d/%y"))%>%
   mutate(background=case_when(
     Study_shorthand %in% c("CCE","Tooley_DRE") & trt_type=="DEL" ~ str_remove(as.character(trt),"_DEL$"),
-    Study_shorthand %in% c("CCE","Tooley_DRE") & trt_type=="CON"~as.character(trt)))
+    Study_shorthand %in% c("CCE","Tooley_DRE") & trt_type=="CON"~as.character(trt)))%>%
+    mutate(label=y.lab)
+  # save
+  con.av.adj[[i]]<-daily
+  
+  # make columns side-by-side control (duplicated when needed) & deluge treatments
+  ### split into control and deluge data frames
+  con_daily<-daily%>%
+    filter(trt_type=="CON")%>%
+    select(Study_shorthand,year,new.date,CON_type=Study_trt,CON_n=plots.per.trt,CON_av=av,CON_sd=sd,CON_SE=SE,doy.date,background)
+  
+  del_daily<-daily%>%
+    filter(trt_type=="DEL")%>%
+    select(Study_shorthand,year,new.date,DEL_type=Study_trt,DEL_n=plots.per.trt,DEL_av=av,DEL_sd=sd,DEL_SE=SE,del_start,del_end,doy.date,background)
+  
+  # merge to make a WIDE DF (don't use pivot_wider b/c going to be hard to duplicate right and check NA's, etc.)
+  full.merge.wide<-merge(con_daily,del_daily,by=c("Study_shorthand","year","new.date","doy.date","background"),all=TRUE)
+  print(head(full.merge.wide,5))
+  
+  ### check missing dates that were not matched
+  full.merge.check<-full.merge.wide%>%
+    filter(is.na(CON_av) | is.na(DEL_av))
+  print(full.merge.check)
+  # save check
+  con.merge.check[[i]]<-full.merge.check
+  
+  # CALCULATE WITHIN 20%
+  full.merge.wide<-full.merge.wide%>%
+    mutate(perc_diff=((DEL_av-CON_av)/CON_av)*100)%>%
+    mutate(del_response=case_when(
+      perc_diff < -20 ~ "NEGATIVE",
+      perc_diff >= 20 ~ "POSITIVE",
+      TRUE ~ "none"))%>%
+    mutate(label=y.lab)%>%
+    select(Study_shorthand,year,new.date,del_start,del_end,doy.date,CON_type,DEL_type,CON_n,DEL_n,CON_av,DEL_av,perc_diff,del_response,label)
+  
+  # save merged data
+  con.merge[[i]]<-full.merge.wide
 
-# view(daily)
+  
+}
 
-# make columns side-by-side control (duplicated when needed) & deluge treatments
-### split into control and deluge data frames
-con_daily<-daily%>%
-  filter(trt_type=="CON")%>%
-  select(Study_shorthand,year,new.date,CON_type=Study_trt,CON_n=plots.per.trt,CON_av=av,CON_sd=sd,CON_SE=SE,doy.date,background)
+# check dataframe first few lines look correct (use label column to see what var)
+lapply(con.merge,head,5)
 
-del_daily<-daily%>%
-  filter(trt_type=="DEL")%>%
-  select(Study_shorthand,year,new.date,DEL_type=Study_trt,DEL_n=plots.per.trt,DEL_av=av,DEL_sd=sd,DEL_SE=SE,del_start,del_end,doy.date,background)
+# check any missing dates that did not match in the CON + DEL merge
+con.merge.check
 
-### merge to make a wide df (don't use pivot_wider b/c going to be hard to duplicate right and check NA's, etc.)
-full.merge.wide<-merge(con_daily,del_daily,by=c("Study_shorthand","year","new.date","doy.date","background"),all=TRUE)
-# view(full.merge.wide)
-
-### check missing dates that were not matched
-full.merge.check<-full.merge.wide%>%
-  filter(is.na(CON_av) | is.na(DEL_av))
-full.merge.check
-
-# CALCULATE WITHIN 20%
-full.merge.wide<-full.merge.wide%>%
-  mutate(perc_diff=((DEL_av-CON_av)/CON_av)*100)%>%
-  mutate(del_response=case_when(
-    perc_diff < -20 ~ "NEGATIVE",
-    perc_diff >= 20 ~ "POSITIVE"))%>%
-  select(Study_shorthand,year,new.date,del_start,del_end,doy.date,CON_type,DEL_type,CON_n,DEL_n,CON_av,DEL_av,perc_diff,del_response)
-
-# view(full.merge.wide)
 
 ######## NEXT STEPS ########
 # continuing with full.merge.wide from above, think about good way to organize table or use "del_response" column to highlight on graph when consecutive days remaining different ends--define as deluge response period length for each
