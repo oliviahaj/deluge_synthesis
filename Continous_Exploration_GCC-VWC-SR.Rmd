@@ -145,6 +145,7 @@ for (i in seq_along(con.dat)){
     Study_shorthand %in% c("CCE","Tooley_DRE") & trt_type=="DEL" ~ str_remove(as.character(trt),"_DEL$"),
     Study_shorthand %in% c("CCE","Tooley_DRE") & trt_type=="CON"~as.character(trt)))%>%
     mutate(label=y.lab)
+  
   # save
   con.av.adj[[i]]<-daily
   
@@ -181,38 +182,158 @@ for (i in seq_along(con.dat)){
   
   # save merged data
   con.merge[[i]]<-full.merge.wide
-
   
 }
 
 # check dataframe first few lines look correct (use label column to see what var)
 lapply(con.merge,head,5)
 
+view(con.merge[[2]])
+
+lapply(con.av.adj,head,5)
+
 # check any missing dates that did not match in the CON + DEL merge
 con.merge.check
 
+view(con.merge[[1]])
+
+# bind all rows and export
+# bind rows
+response.periods<-bind_rows(con.merge)
+
+# Export locally
+write.csv(x = response.periods, file = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_wide-response-periods_bydate.csv"))
+
+# Upload to Drive
+googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_wide-response-periods_bydate.csv"), overwrite = T,
+                        path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+
+# bind rows
+daily.avs<-bind_rows(con.av.adj)
+
+# Export locally
+write.csv(x = daily.avs, file = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_long-dailyavs.csv"))
+
+# Upload to Drive
+googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_long-dailyavs.csv"), overwrite = T,
+                        path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 
 ######## NEXT STEPS ########
 # continuing with full.merge.wide from above, think about good way to organize table or use "del_response" column to highlight on graph when consecutive days remaining different ends--define as deluge response period length for each
 
+#### Using relative 20% from ranges instead ####
+### get ranges for each measurement (label) across all years and studies -- TOTAL ranges -- **THIS WILL NEED TO BE ADJUSTED to drop Mary first year if we don't want that or any others! **
+rel.20.across<-response.periods%>%
+  group_by(label)%>%
+  # filter(!Study_shorthand=="ChANGE" & year==)%>%
+  summarise(range_across_studyyrs=max(CON_av,na.rm=TRUE)-min(CON_av,na.rm=TRUE)) 
+
+### get ranges for each within each study and year -- this may be more relevant if we want to consider asymmetric responses -- so dry years are weighted differently than wet
+rel.20.within<-response.periods%>%
+  group_by(label,Study_shorthand,year)%>%
+  summarise(range_within_studyyrs=max(CON_av,na.rm=TRUE)-min(CON_av,na.rm=TRUE))
+
+#### metric comparisons ####
+# compare 20% of control (raw) vs. 20% relative to total range vs. 20% relative to range in that study/year
+all.comps<-response.periods%>%
+  left_join(rel.20.across,by="label")%>%
+  left_join(rel.20.within,by=c("label","Study_shorthand","year"))%>%
+  mutate(range_diff_across=((DEL_av-CON_av)/range_across_studyyrs)*100,
+         del_response_across=case_when(
+           range_diff_across <= -20 ~ "NEGATIVE",
+           range_diff_across >= 20 ~ "POSITIVE",
+           TRUE ~ "none"),
+         range_diff_within=((DEL_av-CON_av)/range_within_studyyrs)*100,
+         del_response_within=case_when(
+           range_diff_within <= -20 ~ "NEGATIVE",
+           range_diff_within >= 20 ~ "POSITIVE",
+           TRUE ~ "none"))
+
+# comparison of how many dates flagged under each method
+all.comps %>%
+  group_by(label) %>%
+  summarise(
+    original = sum(del_response != "none", na.rm=TRUE),
+    across_range = sum(del_response_across != "none", na.rm=TRUE),
+    within_range = sum(del_response_within != "none", na.rm=TRUE)) 
+
 ```
 
 ```{r graphing deluges}
-## graph 
-ggplot(daily,aes(x=doy.date,y=av,group=trt,linetype=trt_type,color=Study_trt)) +
-  geom_rect(aes(xmin=yday(del_start),xmax=yday(del_end),ymin=-Inf,ymax=Inf),color="lightblue",fill="lightblue",linetype="solid")+
-  geom_line() +
-  geom_point() +
-  geom_errorbar(aes(ymin=av-SE, ymax=av+SE), width=0.2) +
-  facet_wrap(~Study_shorthand+year,ncol=2) +
-  # scale_x_date(date_labels="%b %d") +
-  labs(
-    x="Date",
-    y=y.lab,
-    linetype="Treatment")+
-  theme_bw()+
-  theme(legend.position="bottom")
+study.names<-bind_rows(con.av.adj)%>%
+  distinct(Study_shorthand)%>%
+  pull(Study_shorthand)
 
+
+for (i in con.av.adj){
+  for (s in study.names){
+    
+    dat<-i%>%
+      filter(Study_shorthand==s)
+    
+    if (nrow(dat)==0) next
+    
+    y.lab<-unique(dat$label)
+    
+    # get positive response dates
+    pos.dates.con<-all.comps%>%
+      filter(Study_shorthand==s,
+             label==y.lab,
+             del_response_across=="POSITIVE",
+             grepl("CON$",CON_type))
+    
+    pos.dates.dr<-all.comps%>%
+      filter(Study_shorthand==s,
+             label==y.lab,
+             del_response_across=="POSITIVE",
+             grepl("DR$",CON_type))
+    
+    # get negative response dates
+    neg.dates.con<-all.comps%>%
+      filter(Study_shorthand==s,
+             label==y.lab,
+             del_response_across=="NEGATIVE",
+             grepl("CON$",CON_type))
+    
+    neg.dates.dr<-all.comps%>%
+      filter(Study_shorthand==s,
+             label==y.lab,
+             del_response_across=="NEGATIVE",
+             grepl("DR$",CON_type))
+    
+    # plot lines for trts and wrap w/ years
+    plot<-ggplot(dat,aes(x=doy.date,y=av,group=trt,linetype=trt_type,color=Study_trt)) +
+      geom_rect(aes(xmin=yday(del_start),xmax=yday(del_end),ymin=-Inf,ymax=Inf),color="lightblue",fill="lightblue",linetype="solid")+
+      geom_line() +
+      geom_point() +
+      geom_errorbar(aes(ymin=av-SE, ymax=av+SE), width=0.2) +
+      geom_text(data=pos.dates.con,aes(x=doy.date,y=max(dat$av,na.rm=TRUE)*1.05),
+                label="+",color="green4",size=3,inherit.aes=FALSE)+
+      geom_text(data=neg.dates.con,aes(x=doy.date,y=max(dat$av,na.rm=TRUE)*1.05),
+                label="-",color="red4",size=3,inherit.aes=FALSE)+
+      geom_text(data=pos.dates.dr,aes(x=doy.date,y=min(dat$av,na.rm=TRUE)*0.95),
+                label="+",color="green4",size=3,inherit.aes=FALSE)+
+      geom_text(data=neg.dates.dr,aes(x=doy.date,y=min(dat$av,na.rm=TRUE)*0.95),
+                label="-",color="red4",size=3,inherit.aes=FALSE)+
+      # scale_x_date(date_labels="%b %d") +
+      facet_wrap(~year)+
+      labs(
+        x="Date",
+        y=y.lab,
+        title=s,
+        linetype="Treatment")+
+      theme_bw()+
+      theme(legend.position="right")+
+      force_panelsizes(rows = unit(2.25, "in"),
+                   cols = unit(4.25, "in"))
+    
+    filename<-paste0("/Users/Kathy/Desktop/",s,"_",y.lab,".png")
+    ggsave(filename,plot,width=12,height=5)
+  }
+  
+}
+
+view(all.comps)
 ```
 
 ```{r monthly}
