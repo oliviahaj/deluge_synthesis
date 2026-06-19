@@ -203,7 +203,7 @@ tapply(GCC$trt,GCC$Study_shorthand,unique)
 
 # add in Greg GCC data (sent later than everyone else - skipping initial filtering and harmonizing to add just here now)
 Tooley_GCC<-read.csv("deluge/data/Tooley_DRE_GCC.csv")
-getwd()
+
 
 # recode trts by study, leave trts we don't want out (replaced with NA) & filter out trt==NA
 GCC_recode <- GCC %>%
