@@ -74,7 +74,7 @@ str(SR)
 
 #### set up deluge characteristics data to merge with
 del.info<-read.csv("deluge/data/deluge_characteristics_mergeable.csv")
-view(del.info)
+# view(del.info)
 ```
 
 ```{r fix rest of data for merge}
@@ -188,14 +188,14 @@ for (i in seq_along(con.dat)){
 # check dataframe first few lines look correct (use label column to see what var)
 lapply(con.merge,head,5)
 
-view(con.merge[[2]])
+# view(con.merge[[2]])
 
 lapply(con.av.adj,head,5)
 
 # check any missing dates that did not match in the CON + DEL merge
 con.merge.check
 
-view(con.merge[[1]])
+# view(con.merge[[1]])
 
 # bind all rows and export
 # bind rows
