@@ -313,6 +313,7 @@ VWC_recode <- VWC %>%
   filter(!is.na(trt))%>%
   filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
 
+
 # check data again and unique trts for each study
 str(VWC_recode)
 tapply(VWC_recode$trt,VWC_recode$Study_shorthand,unique)
@@ -380,7 +381,8 @@ write.csv(VWC_recode, "VWC_20cm_filtered.csv", row.names = FALSE)
 drive_upload(
   media = "VWC_20cm_filtered.csv",
   path = file.path("deluge", "data","R_exports"),
-  name = "VWC_20cm_filtered.csv")
+  name = "VWC_20cm_filtered.csv",
+  overwrite = T)
 
 ```
 
