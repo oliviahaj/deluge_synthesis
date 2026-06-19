@@ -162,9 +162,8 @@ ANPP_recode <- ANPP %>%
     Study_shorthand == "Linabury_ChANGE", 
     paste(as.factor(plot),as.factor(trt),sep="_"),
     as.factor(plot)))%>%
-  filter(!is.na(trt))%>%
-  filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
-  
+  filter(!is.na(trt))
+
 # check data again and unique trts for each study
 str(ANPP_recode)
 tapply(ANPP_recode$trt,ANPP_recode$Study_shorthand,unique)
