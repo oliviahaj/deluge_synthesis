@@ -163,7 +163,7 @@ ANPP_recode <- ANPP %>%
     paste(as.factor(plot),as.factor(trt),sep="_"),
     as.factor(plot)))%>%
   filter(!is.na(trt))%>%
-  filter(!(Study_shorthand=="Linabury_ChANGE" & year==2021))
+  filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
   
 # check data again and unique trts for each study
 str(ANPP_recode)
@@ -193,7 +193,7 @@ PRS_recode <- PRS %>%
   # fit mismatched name of my study
   mutate(Study_shorthand=if_else(Study_shorthand=="Condon_SLs","Condon_SL",Study_shorthand))%>%
   filter(!is.na(trt))%>%
-  filter(!(Study_shorthand=="Linabury_ChANGE" & year==2021))
+  filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
   
 # check data again and unique trts for each study
 str(PRS_recode)
@@ -251,7 +251,7 @@ GCC_recode <- GCC %>%
     paste(as.factor(plot),as.factor(trt),sep="_"),
     as.factor(plot)))%>%
   filter(!is.na(trt))%>%
-  filter(!(Study_shorthand=="Linabury_ChANGE" & year==2021))
+  filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
   
 # check data again and unique trts for each study
 str(GCC_recode)
@@ -312,7 +312,7 @@ VWC_recode <- VWC %>%
     paste(as.factor(plot),as.factor(trt),sep="_"),
     as.factor(plot)))%>%
   filter(!is.na(trt))%>%
-  filter(!(Study_shorthand=="Linabury_ChANGE" & year==2021))
+  filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
 
 # check data again and unique trts for each study
 str(VWC_recode)
