@@ -1,0 +1,163 @@
+---
+title: "ANPP"
+author: "OLH"
+date: "2026-04"
+output: 
+  bookdown::html_document2:
+    code_folding: hide
+    toc: TRUE
+    toc_depth: 4
+    toc_float: TRUE
+    collapsed: TRUE
+    theme: spacelab
+    fig_caption: TRUE
+    number_sections: FALSE
+---
+# Setup
+<style>h1 {font-size: 24pt; } h2 {font-size: 20pt; } h3 {font-size: 18pt; } h4 {font-size: 16pt; } h5 {font-size: 14pt; } h6 {font-size: 12pt; } </style> 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, dpi = 600, progress = FALSE, cache = FALSE, fig.width=5,  fig.height=3.5, fig.align="center")
+
+options(repos = c(CRAN = "http://cran.rstudio.com"))
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, googledrive, supportR, lubridate)
+
+`%!in%` = Negate(`%in%`)
+
+```
+
+# Create Folders on Desktop
+```{r}
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge", 'data'), showWarnings = F)
+dir.create(file.path("deluge", 'precip_data'), showWarnings = F)
+dir.create(file.path("deluge", 'data', 'R_exports'), showWarnings = F)
+```
+
+# Download ANPP data
+```{r}
+##### ANPP
+anpp <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3")) %>%
+  dplyr::filter(name == "ANPP_filtered.csv")
+
+# Did that work?
+anpp 
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = anpp$id, overwrite = T, type = "csv",
+                            path = file.path("deluge","data","R_exports", anpp$name))
+
+# Read in hoover ppt
+anpp <- read.csv(file = file.path("deluge","data","R_exports", "ANPP_filtered.csv"))
+
+```
+
+# Visualize the ANPP by type too
+```{r}
+unique(anpp$funct_group)
+str(anpp)
+anpp.2 <- anpp %>%
+  # fix the years for consistency of measurement
+  filter(year %!in% c("July-Sept Regrowth 2021","July 2021")) %>%
+  mutate(year = ifelse(year == "Sept 2021", "2021", year)) %>%
+  # create a new func group that's just grass, anpp, or total
+  mutate(func = case_when(
+    funct_group == "ANNUALS" ~ "GRASS", 
+    funct_group == "C3" ~ "GRASS",
+    funct_group == "C4" ~ "GRASS",
+    funct_group == "C4.ANNUALS" ~ "GRASS",
+    TRUE ~ funct_group
+  )) %>%
+  # summarize into grass, annual, or total
+  group_by(Study_shorthand, year, Block, plot, trt, func) %>%
+  summarize(anpp = sum(ANPP)) %>%
+  # get rid of woody
+  filter(func != "WOODY")
+
+ggplot(anpp.2, aes(year, anpp, color = Study_shorthand))+
+  geom_jitter(alpha = 0.6)+
+  theme_bw()+
+  facet_wrap(~func)
+```
+
+
+# read in table to look at comparisons
+```{r}
+# read in differences from long ta
+lta <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1fpoG0wLLqjFLkucR2ZlNMon31DIW1GH-")) %>%
+  dplyr::filter(name == "treatmetn_LTA_Change.csv")
+
+googledrive::drive_download(file = lta$id, overwrite = T, type = "csv",
+                            path = file.path("deluge", lta$name))
+
+# Read in hoover ppt
+trt.data <- read.csv(file = file.path("deluge", "treatmetn_LTA_Change.csv"))
+
+```
+
+
+# summarize across func groups and determine a log response ratio
+```{r}
+
+# create a new dataframe that determines if it is a control or a deluge treatment and then summarizes to the treatment year level, averaging across plots and then blocks where relevant
+str(anpp.2)
+anpp.3 <- anpp.2%>%
+  mutate(del = as.numeric(ifelse(trt %in% c("CON", "DR"), "0", "1"))) %>%
+  group_by(Study_shorthand, year, Block, trt, func, del) %>%
+  summarize(mean_ANPP = mean(anpp), se_ANPP = (sd(anpp))/(sqrt(n())))
+
+block_summary <- anpp.3%>%
+  filter(!is.na(Block)) %>%
+  group_by(Study_shorthand, year, trt, func, del) %>%
+  summarise(mean_anpp = mean(mean_ANPP), se_ANPP = (sd(mean_ANPP))/(sqrt(n())), .groups = "drop") %>%
+  rename(mean_ANPP = "mean_anpp")
+
+anpp.4 <- anpp.3 %>%
+  filter(is.na(Block)) %>%
+  ungroup()%>%
+  select(-Block) %>%
+  rbind(block_summary)
+
+con <- anpp.4 %>%
+  filter(del == 0) %>%
+  mutate(pairing = str_sub(trt, 1, 2)) %>%
+  select(pairing, Study_shorthand, year, func, mean_ANPP, se_ANPP) %>%
+  rename(ctrl_anpp = "mean_ANPP", 
+         ctrl_se = "se_ANPP")
+
+trts <- anpp.4  %>%
+  filter(del==1) %>%
+  mutate(pairing = str_sub(trt, 1, 2), 
+         pairing = ifelse(pairing == "DR", "DR", "CO")) %>%
+  select(pairing, Study_shorthand, year, func, mean_ANPP, se_ANPP) %>%
+  rename(del_anpp = "mean_ANPP", 
+         del_se = "se_ANPP")
+
+paired <- left_join(con, trts)
+
+paired.2 <- paired %>%
+  mutate(lrr_anpp = log(del_anpp/ctrl_anpp))
+
+ggplot(paired.2, aes(year, lrr_anpp, color = Study_shorthand)) +
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~func)
+```
+
+# look at overall mean log response ratio by func
+```{r}
+func.rr <- paired.2 %>%
+  # filter to not include fall
+  filter(Study_shorthand %in% c("Hajek2024", "Tooley_DRE")) %>%
+  group_by(func) %>%
+  summarize(mean_lrr = mean(lrr_anpp), se_lrr = (sd(lrr_anpp))/(sqrt(n()))) 
+
+ggplot(func.rr, aes(mean_lrr, func))+
+  geom_point()+
+  geom_errorbar(aes(xmin = mean_lrr - se_lrr, xmax = mean_lrr + se_lrr))+
+  theme_bw()
+
+```
+
+

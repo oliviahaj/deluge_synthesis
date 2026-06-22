@@ -94,6 +94,17 @@ googledrive::drive_download(file = names$id, overwrite = T, type = "csv",
 
 # Read in hoover ppt
 names.update <- read.csv(file = file.path("deluge","treatment_codes_byData.csv"))
+
+# read in differences from long ta
+lta <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1fpoG0wLLqjFLkucR2ZlNMon31DIW1GH-")) %>%
+  dplyr::filter(name == "treatmetn_LTA_Change.csv")
+
+googledrive::drive_download(file = lta$id, overwrite = T, type = "csv",
+                            path = file.path("deluge", lta$name))
+
+# Read in hoover ppt
+trt.data <- read.csv(file = file.path("deluge", "treatmetn_LTA_Change.csv"))
+
 ```
 
 # prelim ANPP data viz
@@ -192,7 +203,7 @@ ggplot(rue, aes(ann_ppt_13, rue))+
   geom_point(size=3, aes(color = Study_shorthand)) +
   theme_bw() +
   geom_smooth(method="lm") +
-  facet_wrap(~timing)
+  facet_wrap(~Deluge.Timing)
 
 ggplot(rue, aes(mean_ANPP, rue))+
   geom_point(size=3, aes(color = Study_shorthand)) +
@@ -217,7 +228,7 @@ trts <-rue %>%
   filter(del==1) %>%
   mutate(pairing = str_sub(trt, 1, 2), 
          pairing = ifelse(pairing == "DR", "DR", "CO")) %>%
-  select(pairing,ann_ppt_13, Study_shorthand, year, rue, timing, mean_ANPP, se_ANPP) %>%
+  select(pairing,ann_ppt_13, Study_shorthand, year, rue, mean_ANPP, se_ANPP) %>%
   rename(del_anpp = "mean_ANPP", 
          del_se = "se_ANPP", 
          del_rue = "rue", 
