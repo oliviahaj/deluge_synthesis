@@ -163,7 +163,7 @@ ANPP_recode <- ANPP %>%
     paste(as.factor(plot),as.factor(trt),sep="_"),
     as.factor(plot)))%>%
   filter(!is.na(trt))
-  
+
 # check data again and unique trts for each study
 str(ANPP_recode)
 tapply(ANPP_recode$trt,ANPP_recode$Study_shorthand,unique)
@@ -191,7 +191,8 @@ PRS_recode <- PRS %>%
     as.factor(plot)))%>%
   # fit mismatched name of my study
   mutate(Study_shorthand=if_else(Study_shorthand=="Condon_SLs","Condon_SL",Study_shorthand))%>%
-  filter(!is.na(trt))
+  filter(!is.na(trt))%>%
+  filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
   
 # check data again and unique trts for each study
 str(PRS_recode)
@@ -200,6 +201,31 @@ tapply(PRS_recode$trt,PRS_recode$Study_shorthand,unique)
 #### GCC ####
 # check study shorthand and levels of trts in each
 tapply(GCC$trt,GCC$Study_shorthand,unique)
+
+# add in Greg GCC data (sent later than everyone else - skipping initial filtering and harmonizing to add just here now)
+Tooley_path<-googledrive::drive_download(file = "Tooley_DRE_GCC.csv", 
+                              overwrite = T,
+                              path = file.path("deluge", 'data',"Tooley_DRE_GCC.csv"))
+Tooley_GCC<-read.csv("deluge/data/Tooley_DRE_GCC.csv")
+
+Tooley_DRE_recode<-Tooley_GCC%>%
+  mutate(trt=paste("Leg.",DroughtTreatment,"_","Trt.",WaterTreatment,sep=""),
+         Study_shorthand="Tooley_DRE",
+         study_trt=paste(Study_shorthand,trt,sep="_"),
+         Variable="GCC",
+         block=NA)%>%
+  filter(WaterTreatment %in% c("LTA","Deluge"))%>%
+  rename(date=Date,plot=Plot,year=Year,GCC=Greenness)%>%
+  mutate(date=as.Date(date,format="%Y-%m-%d"),
+         doy=yday(date))%>%
+  select(c(date,plot,trt,GCC,Study_shorthand,Variable,year,doy,study_trt,block))
+
+str(Tooley_DRE_recode)
+
+# combine Tooley in
+GCC_add<-rbind(GCC,Tooley_DRE_recode)
+GCC<-GCC_add # replace GCC
+str(GCC)
 
 # recode trts by study, leave trts we don't want out (replaced with NA) & filter out trt==NA
 GCC_recode <- GCC %>%
@@ -223,7 +249,8 @@ GCC_recode <- GCC %>%
     Study_shorthand == "Linabury_ChANGE", 
     paste(as.factor(plot),as.factor(trt),sep="_"),
     as.factor(plot)))%>%
-  filter(!is.na(trt))
+  filter(!is.na(trt))%>%
+  filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
   
 # check data again and unique trts for each study
 str(GCC_recode)
@@ -283,7 +310,9 @@ VWC_recode <- VWC %>%
     Study_shorthand == "Linabury_ChANGE", 
     paste(as.factor(plot),as.factor(trt),sep="_"),
     as.factor(plot)))%>%
-  filter(!is.na(trt))
+  filter(!is.na(trt))%>%
+  filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
+
 
 # check data again and unique trts for each study
 str(VWC_recode)
@@ -352,7 +381,8 @@ write.csv(VWC_recode, "VWC_20cm_filtered.csv", row.names = FALSE)
 drive_upload(
   media = "VWC_20cm_filtered.csv",
   path = file.path("deluge", "data","R_exports"),
-  name = "VWC_20cm_filtered.csv")
+  name = "VWC_20cm_filtered.csv",
+  overwrite = T)
 
 ```
 
