@@ -233,13 +233,13 @@ ppt_sum <- full_ppt2 %>%
 
 ## Export and write to the drives
 # Save your dataframe locally first
-write.csv(ppt_sum, "cper_ppt_data_combined.csv", row.names = FALSE)
-
-drive_upload(
-  media = "cper_ppt_data_combined.csv",
-  path = file.path("deluge", "precip_data"),
-  name = "cper_ppt_data_combined.csv"
-)
+# write.csv(ppt_sum, "cper_ppt_data_combined.csv", row.names = FALSE)
+# 
+# drive_upload(
+#   media = "cper_ppt_data_combined.csv",
+#   path = file.path("deluge", "precip_data"),
+#   name = "cper_ppt_data_combined.csv"
+# )
 
 
 # Prep data for monthly precip values
@@ -315,6 +315,8 @@ trt_years <- trt %>%
 deluge_trt <- trt %>%
   select(Study, Treatment_raw, response_year, Deluge_size_mm, Deluge_month) %>%
   rename(year = "response_year") %>% 
+  # fix mary's mmissing month
+  mutate(Deluge_month = ifelse(Study == "Linbabury et al. CHANGE" & Treatment_raw == "Del" & year == 2022, "6", Deluge_month))%>%
   mutate(Deluge_month = paste0("m", as.character(Deluge_month), by = "")) %>%
   filter(Deluge_month != "mNA") %>%
   mutate(month = ifelse(Treatment_raw == "SEP", "m9_prev", Deluge_month), 
@@ -408,9 +410,40 @@ ppt.join <- ppt.long3 %>%
          ann_ppt_prev = m1_prev + m2_prev + m3_prev + m4_prev + 
            m5_prev + m6_prev + m7_prev + m8_prev + m9_prev + m10_prev + m11_prev + m12_prev,)
 
+# TREATMENT NAME UPDaTE
+names <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1fpoG0wLLqjFLkucR2ZlNMon31DIW1GH-")) %>%
+  dplyr::filter(name == "treatment_codes_byData")
+
+# Did that work?
+names 
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = names$id, overwrite = T, type = "csv",
+                            path = file.path("deluge", names$name))
+
+# Read in hoover ppt
+names.update <- read.csv(file = file.path("deluge","treatment_codes_byData.csv"))
+
+
+# 1) fix/update treatment names on the precip data
+names.update  <- names.update %>%
+  filter(raw_filename == "precip_data_cleaned_trts.csv") %>%
+  rename(Study = "Full.Study", 
+         Treatment_raw = "trt_names") %>%
+  select(c(Study, Study_shorthand, Our_trt, Treatment_raw)) %>%
+  mutate(across(where(is.character), ~gsub("\u00A0", " ", .x)))
+
+ppt.2 <- ppt.join %>%
+  mutate(across(c(Study, Treatment_raw), str_trim)) %>%
+  left_join(
+    names.update, #%>% mutate(across(c(Study, Treatment_raw), str_trim)),
+    by = c("Study", "Treatment_raw")
+  )                         
+                         
+                         
 # save and export
 
-write.csv(ppt.join, "precip_data_cleaned_trts.csv", row.names = FALSE)
+write.csv(ppt.2, "precip_data_cleaned_trts.csv", row.names = FALSE)
 
 drive_upload(
   media = "precip_data_cleaned_trts.csv",
