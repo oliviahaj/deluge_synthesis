@@ -45,7 +45,7 @@ dir.create(file.path("deluge","figures"))
 #### pull data from Google Drive to local files - one at a time...**select 2 to re-link drive** as needed ####
 
 ## list all productivity files in drive by name
-prod.files<-c("Linabury_ChANGE_ANPP.csv","CCE_ANPP_2025_R.csv","Condon_SLs_ANPP_byfunctionalgroup.csv","Hajek2024_ANPP.csv","Tooley_DRE_ANPP.csv","Post2020_ANPP.csv","Post2020_BNPP.csv","Post2021_ANPP.csv","Post2021_BNPP.csv","Hoover2022_CPER-DEX_Productivity.csv")
+prod.files<-c("Linabury_ChANGE_ANPP.csv","CCE_ANPP_2025_R.csv","Condon_SLs_ANPP_byfunctionalgroup.csv","Hajek2024_ANPP.csv","Tooley_DRE_ANPP.csv","Post2020_ANPP.csv","Post2020_BNPP.csv","Post2021_ANPP.csv","Post2021_BNPP.csv","Hoover2022_CPER-DEX_Productivity.csv", "Hoover2022_ANPP_FuncGroup.csv")
 
 ## read in drive folder
 drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p"))
@@ -347,6 +347,56 @@ Hoover2022<-Hoover2022_CPER_DEX%>%
 head(Hoover2022,5)
 
 ```
+
+
+```{r "Hoover2022_ANPP_FuncGroup.csv"}
+# the functional group for Hoover vs. just overall
+Hoover2022_CPER_DEX.fg<-read.csv("deluge/data/Hoover2022_ANPP_FuncGroup.csv")
+head(Hoover2022_CPER_DEX.fg,5)
+
+Hoover2022.fg<-Hoover2022_CPER_DEX.fg%>%
+  select(-c(Site, Trtnum, Date.Collected, Date.Weighed, Soil_Moisture, Notes, BOGR.Flower.Stem.Ct, Cactus.percent)) %>%
+  rename(trt=Treatment,plot=Plot)%>%
+   pivot_longer(cols=c(C3, C4, Forb, Annual, Woody),names_to="funct_group",values_to="ANPP")%>%
+  mutate(Study_shorthand="Hoover2022_CPER_DEX",
+         year="2019") %>%
+  group_by(Study_shorthand,year,plot,trt,funct_group)%>%
+  dplyr::summarise(
+    n.its=n(),
+    plot.av=mean(ANPP),
+    plot.sd=sd(ANPP),
+    .groups="drop")%>%
+  rename(ANPP=plot.av)
+  rename(trt=treatment,ANPP=anpp,BNPP=bnpp)%>%
+  mutate(Study_shorthand="Hoover2022_CPER_DEX",
+         year="2019")%>%
+  select(Study_shorthand,plot,trt,year,ANPP,BNPP)
+
+rename(trt=Trt,plot=Plot)%>%
+  mutate(Study_shorthand="Post2021",
+         year="2018",
+         GRASS=Grass_total*10,
+         FORB=Forb_mass*10,
+         ANPP=Total_biomass*10)%>%
+  select(Study_shorthand,plot,Rep,trt,year,GRASS,FORB,ANPP)
+
+head(Post2021)
+
+Post2021_long<-Post2021%>%
+  pivot_longer(cols=c(GRASS,FORB,ANPP),names_to="funct_group",values_to="ANPP")%>%
+  group_by(Study_shorthand,year,plot,trt,funct_group)%>%
+  dplyr::summarise(
+    n.its=n(),
+    plot.av=mean(ANPP),
+    plot.sd=sd(ANPP),
+    .groups="drop")%>%
+  rename(ANPP=plot.av)
+
+
+head(Hoover2022.fg,5)
+
+```
+
 
 ```{r Check all}
 CHANGE_long
