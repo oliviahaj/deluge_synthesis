@@ -309,26 +309,30 @@ for (i in con.av.adj){
     pos.dates.con<-all.comps%>%
       filter(Study_shorthand==s,
              label==y.lab,
-             del_response_across=="POSITIVE",
+             # del_response_across=="POSITIVE",
+             del_response_within=="POSITIVE",
              grepl("CON$",CON_type))
     
     pos.dates.dr<-all.comps%>%
       filter(Study_shorthand==s,
              label==y.lab,
-             del_response_across=="POSITIVE",
+             # del_response_across=="POSITIVE",
+             del_response_within=="POSITIVE",
              grepl("DR$",CON_type))
     
     # get negative response dates
     neg.dates.con<-all.comps%>%
       filter(Study_shorthand==s,
              label==y.lab,
-             del_response_across=="NEGATIVE",
+             # del_response_across=="NEGATIVE",
+             del_response_within=="NEGATIVE",
              grepl("CON$",CON_type))
     
     neg.dates.dr<-all.comps%>%
       filter(Study_shorthand==s,
              label==y.lab,
-             del_response_across=="NEGATIVE",
+             # del_response_across=="NEGATIVE",
+             del_response_within=="NEGATIVE",
              grepl("DR$",CON_type))
     
     # plot lines for trts and wrap w/ years
