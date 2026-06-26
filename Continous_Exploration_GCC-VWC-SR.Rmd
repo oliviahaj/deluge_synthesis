@@ -222,10 +222,9 @@ googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_
 # continuing with full.merge.wide from above, think about good way to organize table or use "del_response" column to highlight on graph when consecutive days remaining different ends--define as deluge response period length for each
 
 #### Using relative 20% from ranges instead ####
-### get ranges for each measurement (label) across all years and studies -- TOTAL ranges -- **THIS WILL NEED TO BE ADJUSTED to drop Mary first year if we don't want that or any others! **
+### get ranges for each measurement (label) across all years and studies -- TOTAL ranges --
 rel.20.across<-response.periods%>%
   group_by(label)%>%
-  # filter(!Study_shorthand=="ChANGE" & year==)%>%
   summarise(range_across_studyyrs=max(CON_av,na.rm=TRUE)-min(CON_av,na.rm=TRUE)) 
 
 ### get ranges for each within each study and year -- this may be more relevant if we want to consider asymmetric responses -- so dry years are weighted differently than wet
@@ -327,13 +326,20 @@ for (i in con.av.adj){
       force_panelsizes(rows = unit(2.25, "in"),
                    cols = unit(4.25, "in"))
     
-    filename<-paste0("/Users/Kathy/Desktop/",s,"_",y.lab,".png")
+    filename<-paste0("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/",s,"_",y.lab,".png")
     ggsave(filename,plot,width=12,height=5)
   }
   
 }
 
 view(all.comps)
+
+# Export locally
+write.csv(x = all.comps, file = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_allcomps_periods.csv"))
+
+# Upload to Drive
+googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_allcomps_periods.csv"), overwrite = T,
+                        path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 ```
 
 ```{r monthly}
