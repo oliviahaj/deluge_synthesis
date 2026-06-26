@@ -333,6 +333,13 @@ for (i in con.av.adj){
 }
 
 view(all.comps)
+
+# Export locally
+write.csv(x = all.comps, file = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_allcomps_periods.csv"))
+
+# Upload to Drive
+googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_allcomps_periods.csv"), overwrite = T,
+                        path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 ```
 
 ```{r monthly}
