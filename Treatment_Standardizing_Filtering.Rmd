@@ -41,7 +41,7 @@ dir.create(file.path("deluge","figures"))
 ### inspecting raw treatment labels
 ```{r read in all CCE files}
 ## Read in drive folder (same folder as before)
-drive.files <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3?usp=drive_link"))
+drive.files <- googledrive::drive_ls(googledrive::as_id("1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 
 ## Filter to only files starting with "CCE_"
 cce.files <- drive.files %>%
@@ -101,7 +101,7 @@ lapply(cce.list, function(df) unique(df$treatment))
 harm.files<-c("ANPP_harmonized.csv","GCC_harmonized.csv","PRS_Nutrients_harmonized.csv","SR_harmonized.csv","VWC_20cm_harmonized.csv")
 
 ## read in drive folder
-drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3?usp=drive_link"))
+drive.files <- googledrive::drive_ls(googledrive::as_id("1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
   
 ## read in each file
 for (i in harm.files){
@@ -143,25 +143,50 @@ tapply(ANPP$trt,ANPP$Study_shorthand,unique)
 
 # recode trts by study, leave trts we don't want out (replaced with NA) & filter out trt==NA
 ANPP_recode <- ANPP %>%
-  mutate(trt=as.character(trt))%>%
-  mutate(trt=case_when(
-    Study_shorthand == "CCE" ~ recode_values(trt, "1"~"CON", "2"~"DR", "3"~"CON_DEL", "4"~"DR_DEL"),
-    Study_shorthand == "Condon_SL" ~ recode_values(trt, "amb"~"CON", "amb w/ deluge"~"CON_DEL"),
-    Study_shorthand == "Hajek2024" ~ recode_values(trt, "OCT"~"OCT_DEL", "SEP"~"SEP_DEL", "AMB"~"CON"),
-    Study_shorthand == "Hoover2022_CPER_DEX" ~ recode_values(trt, "DRT+DEL"~"DR_DEL", "DRT"~"DR"),
-    Study_shorthand == "Linabury_ChANGE" ~ recode_values(trt, "control"~"CON", "deluge"~"CON_DEL"),
-    Study_shorthand == "Post2020" ~ recode_values(trt, "A"~"EARLY_DEL", "B"~"MID_DEL", 
-                                                  "C"~"LATE_DEL", "D"~"CON"),
-    Study_shorthand == "Post2021" ~ recode_values(trt, "A"~"CON", "B"~"DEL_20", "C"~"DEL_40",
-                                               "D"~"DEL_60", "E"~"DEL_80", "F"~"DEL_100", "G"~"DEL_120"),
-    Study_shorthand == "Tooley_DRE" ~ recode_values(trt, "Leg.Drought_Trt.LTA"~"DR",
-                                                 "Leg.Drought_Trt.Deluge"~"DR_DEL",
-                                                 "Leg.Control_Trt.LTA"~"CON",
-                                                 "Leg.Control_Trt.Deluge"~"CON_DEL")))%>%
-  mutate(plot=if_else(
-    Study_shorthand == "Linabury_ChANGE", 
-    paste(as.factor(plot),as.factor(trt),sep="_"),
-    as.factor(plot)))%>%
+  mutate(trt = as.character(trt)) %>%
+  mutate(trt = case_when(
+    Study_shorthand == "CCE" & trt == "1" ~ "CON",
+    Study_shorthand == "CCE" & trt == "2" ~ "DR",
+    Study_shorthand == "CCE" & trt == "3" ~ "CON_DEL",
+    Study_shorthand == "CCE" & trt == "4" ~ "DR_DEL",
+    
+    Study_shorthand == "Condon_SL" & trt == "amb" ~ "CON",
+    Study_shorthand == "Condon_SL" & trt == "amb w/ deluge" ~ "CON_DEL",
+    
+    Study_shorthand == "Hajek2024" & trt == "OCT" ~ "OCT_DEL",
+    Study_shorthand == "Hajek2024" & trt == "SEP" ~ "SEP_DEL",
+    Study_shorthand == "Hajek2024" & trt == "AMB" ~ "CON",
+    
+    Study_shorthand == "Hoover2022_CPER_DEX" & trt == "DRT+DEL" ~ "DR_DEL",
+    Study_shorthand == "Hoover2022_CPER_DEX" & trt == "DRT" ~ "DR",
+    
+    Study_shorthand == "Linabury_ChANGE" & trt == "control" ~ "CON",
+    Study_shorthand == "Linabury_ChANGE" & trt == "deluge" ~ "CON_DEL",
+    
+    Study_shorthand == "Post2020" & trt == "A" ~ "EARLY_DEL",
+    Study_shorthand == "Post2020" & trt == "B" ~ "MID_DEL",
+    Study_shorthand == "Post2020" & trt == "C" ~ "LATE_DEL",
+    Study_shorthand == "Post2020" & trt == "D" ~ "CON",
+    
+    Study_shorthand == "Post2021" & trt == "A" ~ "CON",
+    Study_shorthand == "Post2021" & trt == "B" ~ "DEL_20",
+    Study_shorthand == "Post2021" & trt == "C" ~ "DEL_40",
+    Study_shorthand == "Post2021" & trt == "D" ~ "DEL_60",
+    Study_shorthand == "Post2021" & trt == "E" ~ "DEL_80",
+    Study_shorthand == "Post2021" & trt == "F" ~ "DEL_100",
+    Study_shorthand == "Post2021" & trt == "G" ~ "DEL_120",
+    
+    Study_shorthand == "Tooley_DRE" & trt == "Leg.Drought_Trt.LTA" ~ "DR",
+    Study_shorthand == "Tooley_DRE" & trt == "Leg.Drought_Trt.Deluge" ~ "DR_DEL",
+    Study_shorthand == "Tooley_DRE" & trt == "Leg.Control_Trt.LTA" ~ "CON",
+    Study_shorthand == "Tooley_DRE" & trt == "Leg.Control_Trt.Deluge" ~ "CON_DEL",
+    
+    TRUE ~ NA  # keep original value for any unmatched rows
+  )) %>%
+  mutate(plot = if_else(
+    Study_shorthand == "Linabury_ChANGE",
+    paste(as.factor(plot), as.factor(trt), sep = "_"),
+    as.factor(plot))) %>%
   filter(!is.na(trt))
 
 # check data again and unique trts for each study
@@ -322,8 +347,8 @@ tapply(VWC_recode$trt,VWC_recode$Study_shorthand,unique)
 
 ```{r export filtered datafiles}
 # sanity check each
-str(ANPP) # 1957
-str(ANPP_recode) # 1437
+str(ANPP) # 2207
+str(ANPP_recode) # 1537
 
 str(PRS) # 2122
 str(PRS_recode) # 2064
@@ -340,7 +365,8 @@ str(VWC_recode) # 6003
 
 # export each
 # ANPP
-write.csv(ANPP_recode, "ANPP_filtered.csv", row.names = FALSE)
+write.csv(x = ANPP_recode, row.names = F, na = '',
+          file = file.path("deluge", "data", "R_exports","ANPP_filtered.csv"))
 
 drive_upload(
   media = "ANPP_filtered.csv",
