@@ -238,11 +238,12 @@ Tooley_DRE_recode<-Tooley_GCC%>%
          Study_shorthand="Tooley_DRE",
          study_trt=paste(Study_shorthand,trt,sep="_"),
          Variable="GCC",
-         block=NA)%>%
+         block="NA")%>%
   filter(WaterTreatment %in% c("LTA","Deluge"))%>%
   rename(date=Date,plot=Plot,year=Year,GCC=Greenness)%>%
   mutate(date=as.Date(date,format="%Y-%m-%d"),
          doy=yday(date))%>%
+  mutate(date=as.character(date))%>%
   select(c(date,plot,trt,GCC,Study_shorthand,Variable,year,doy,study_trt,block))
 
 str(Tooley_DRE_recode)
@@ -280,6 +281,7 @@ GCC_recode <- GCC %>%
 # check data again and unique trts for each study
 str(GCC_recode)
 tapply(GCC_recode$trt,GCC_recode$Study_shorthand,unique)
+view(GCC_recode)
 
 #### SR ####
 # check study shorthand and levels of trts in each
@@ -353,8 +355,9 @@ str(ANPP_recode) # 1537
 str(PRS) # 2122
 str(PRS_recode) # 2064
 
-str(GCC) # 4937
-str(GCC_recode) # 4017
+str(GCC) # 6684
+str(Tooley_DRE_recode) # 1747
+str(GCC_recode) # 6064
 
 str(SR) # 4285
 str(SR_recode) # 3613
