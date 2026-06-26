@@ -64,6 +64,8 @@ anpp.2 <- anpp %>%
   # create a new func group that's just grass, anpp, or total
   mutate(func = case_when(
     funct_group == "ANNUALS" ~ "GRASS", 
+    funct_group == "Annual" ~ "GRASS", 
+    funct_group == "Forb" ~ "FORB",
     funct_group == "C3" ~ "GRASS",
     funct_group == "C4" ~ "GRASS",
     funct_group == "C4.ANNUALS" ~ "GRASS",
@@ -73,7 +75,8 @@ anpp.2 <- anpp %>%
   group_by(Study_shorthand, year, Block, plot, trt, func) %>%
   summarize(anpp = sum(ANPP)) %>%
   # get rid of woody
-  filter(func != "WOODY")
+  filter(func != "WOODY") %>%
+  filter(func != "Woody")
 
 ggplot(anpp.2, aes(year, anpp, color = Study_shorthand))+
   geom_jitter(alpha = 0.6)+
@@ -149,15 +152,39 @@ ggplot(paired.2, aes(year, lrr_anpp, color = Study_shorthand)) +
 ```{r}
 func.rr <- paired.2 %>%
   # filter to not include fall
-  filter(Study_shorthand %in% c("Hajek2024", "Tooley_DRE")) %>%
+  #filter(Study_shorthand %in% c("Hajek2024", "Tooley_DRE")) %>%
   group_by(func) %>%
   summarize(mean_lrr = mean(lrr_anpp), se_lrr = (sd(lrr_anpp))/(sqrt(n()))) 
 
-ggplot(func.rr, aes(mean_lrr, func))+
-  geom_point()+
-  geom_errorbar(aes(xmin = mean_lrr - se_lrr, xmax = mean_lrr + se_lrr))+
-  theme_bw()
+ggplot(func.rr, aes(mean_lrr, func)) +
+  xlim(-0.1, 1) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_point(size = 3) +
+  geom_errorbar(aes(xmin = mean_lrr - se_lrr, xmax = mean_lrr + se_lrr)) +
+  theme_bw(base_size = 14) +
+  ylab("Functional Group") +
+  xlab("log(RR)")
 
+```
+
+# Look at ANPP vs. PPT
+```{r}
+str(anpp.4)
+str(trt.data)
+lta.data <- trt.data%>%
+  rename(year = Year, Study_shorthand = Study) %>%
+  mutate(year = as.character(year))
+
+anpp.ppt <- anpp.4 %>%
+  left_join(lta.data)
+
+str(anpp.ppt)
+ggplot(anpp.ppt, aes(Difference.from.LTA.MAP, mean_ANPP))+
+  geom_point(aes(shape = as.factor(del), color = Study_shorthand), size = 2)+
+  geom_smooth(se= F, method="lm", size = .9, color = "darkgrey", linetype="dashed")+
+  theme_bw()+
+  facet_wrap(~func)
+  
 ```
 
 
