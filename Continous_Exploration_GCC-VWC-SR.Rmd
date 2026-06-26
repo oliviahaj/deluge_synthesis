@@ -80,15 +80,21 @@ del.info<-read.csv("deluge/data/deluge_characteristics_mergeable.csv")
 ```{r fix rest of data for merge}
 GCC.dat<-GCC%>%
   mutate(var=as.numeric(GCC))
+unique(GCC.dat$Study_shorthand)
 
 VWC.dat<-VWC%>%
   mutate(var=as.numeric(VWC))
+unique(VWC.dat$Study_shorthand)
 
 SR.dat<-SR%>%
   mutate(var=as.numeric(efflux))
+unique(SR.dat$Study_shorthand)
+
 
 con.dat<-list(VWC.dat,GCC.dat,SR.dat)
 con.labels<-list("20 cm VWC (%)","GCC","Efflux")
+
+view(SR.dat)
 ```
 
 ```{r loop continuous data manipulations}
@@ -104,6 +110,21 @@ con.merge.check<-list()
 ### check lists
 lapply(con.dat,head,5)
 con.labels
+
+### troubleshoot Greg data being dropped
+# # Check trt values for Tooley_DRE in raw data BEFORE the loop
+# GCC.dat %>% filter(Study_shorthand == "Tooley_DRE") %>% distinct(trt)
+# SR.dat %>%  filter(Study_shorthand == "Tooley_DRE") %>% distinct(trt)
+# del.info %>% filter(Study_shorthand == "Tooley_DRE") %>% distinct(trt)
+# # Are there any non-NA GCC values for Tooley_DRE at all?
+# GCC.dat %>% filter(Study_shorthand == "Tooley_DRE", !is.na(var))
+# names(GCC.dat)
+# # Fix Greg's date column based on doy (correct) to replace excel formatted date
+# GCC.dat<-GCC.dat%>%
+#   mutate(date=case_when(
+#     Study_shorthand=="Tooley_DRE" ~ as.Date(paste(year,doy,sep="-"),format="%Y-%j"),
+#     TRUE ~ as.Date(as.character(date),format="%Y-%m-%d")))
+# str(GCC.dat)
 
 ### cleanup and average data
 for (i in seq_along(con.dat)){
@@ -133,8 +154,18 @@ for (i in seq_along(con.dat)){
   mutate(Study_trt=paste(Study_shorthand,trt,sep=": "))
   
   # add in deluge characteristics info
-  merge.daily<-merge(daily.avs,del.info,by=c("Study_shorthand","year","trt"))
+  merge.daily<-merge(daily.avs,del.info,by=c("Study_shorthand","year","trt"),all.x=TRUE)
   head(merge.daily,5)
+  
+  merge.daily %>% filter(Study_shorthand == "Tooley_DRE") %>% distinct(year, new.date)
+  
+  # check
+  ## Before merge
+  pre_merge_studies<-unique(daily.avs$Study_shorthand) # Tooley included
+  ## After merge
+  post_merge_studies<-unique(merge.daily$Study_shorthand) # Tooley still included
+  ## check if anything was lost
+  setdiff(pre_merge_studies, post_merge_studies)
   
   # cleanup dates again and split out Alex and Greg (paired controls DR with DR+DEL and CON with CON+DEL)
   daily<-merge.daily%>%
@@ -327,12 +358,12 @@ for (i in con.av.adj){
                    cols = unit(4.25, "in"))
     
     filename<-paste0("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/",s,"_",y.lab,".png")
-    ggsave(filename,plot,width=12,height=5)
+    ggsave(filename,plot,width=17,height=5)
   }
   
 }
 
-view(all.comps)
+# view(all.comps)
 
 # Export locally
 write.csv(x = all.comps, file = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_allcomps_periods.csv"))
