@@ -359,41 +359,22 @@ Hoover2022.fg<-Hoover2022_CPER_DEX.fg%>%
   rename(trt=Treatment,plot=Plot)%>%
    pivot_longer(cols=c(C3, C4, Forb, Annual, Woody),names_to="funct_group",values_to="ANPP")%>%
   mutate(Study_shorthand="Hoover2022_CPER_DEX",
-         year="2019") %>%
+         year="2019", 
+         ANPP = ANPP *10) %>%
   group_by(Study_shorthand,year,plot,trt,funct_group)%>%
   dplyr::summarise(
-    n.its=n(),
     plot.av=mean(ANPP),
-    plot.sd=sd(ANPP),
     .groups="drop")%>%
-  rename(ANPP=plot.av)
-  rename(trt=treatment,ANPP=anpp,BNPP=bnpp)%>%
-  mutate(Study_shorthand="Hoover2022_CPER_DEX",
-         year="2019")%>%
-  select(Study_shorthand,plot,trt,year,ANPP,BNPP)
+  rename(ANPP=plot.av) %>%
+  mutate(trt = case_when(
+    trt == "ambient (no roof)" ~ "AMB", 
+    trt == "control" ~ "CON",
+    trt == "drought" ~ "DRT",
+    trt == "drought + deluge" ~ "DRT+DEL",
+    trt == "drought + small" ~ "DRT+SE",
+    TRUE ~ trt
+  ))
 
-rename(trt=Trt,plot=Plot)%>%
-  mutate(Study_shorthand="Post2021",
-         year="2018",
-         GRASS=Grass_total*10,
-         FORB=Forb_mass*10,
-         ANPP=Total_biomass*10)%>%
-  select(Study_shorthand,plot,Rep,trt,year,GRASS,FORB,ANPP)
-
-head(Post2021)
-
-Post2021_long<-Post2021%>%
-  pivot_longer(cols=c(GRASS,FORB,ANPP),names_to="funct_group",values_to="ANPP")%>%
-  group_by(Study_shorthand,year,plot,trt,funct_group)%>%
-  dplyr::summarise(
-    n.its=n(),
-    plot.av=mean(ANPP),
-    plot.sd=sd(ANPP),
-    .groups="drop")%>%
-  rename(ANPP=plot.av)
-
-
-head(Hoover2022.fg,5)
 
 ```
 
@@ -407,6 +388,7 @@ Tooley_DRE_long
 Post2020_merged
 Post2021_merged
 Hoover2022
+Hoover2022.fg
 
 # final consistencies
 # Standardize each dataframe to have the same columns
@@ -447,10 +429,14 @@ Hoover2022_clean<-Hoover2022%>%
   mutate(funct_group = "ANPP", year = as.character(year))%>%
   select(Study_shorthand, year, Block, plot, trt, funct_group, ANPP, BNPP)
 
+Hoover2022fg_clean <- Hoover2022.fg %>%
+  select(Study_shorthand, year,plot, trt, funct_group, ANPP) %>%
+  mutate(Block = "NA", BNPP = NA, year = as.character(year))
+
 # Stack them all
 ANPP_BNPP_harmonized<-rbind(CHANGE_clean, CCE_clean, condon_SL_clean,
                       Hajek_24_clean, Tooley_DRE_clean,
-                      Post2020_clean, Post2021_clean, Hoover2022_clean)
+                      Post2020_clean, Post2021_clean, Hoover2022_clean, Hoover2022fg_clean)
 
 head(ANPP_BNPP_harmonized,5)
 ```
@@ -458,13 +444,12 @@ head(ANPP_BNPP_harmonized,5)
 ```{r export to drive}
 # Export and write to the drives
 # Save your data frame locally first
-write.csv(ANPP_BNPP_harmonized, "ANPP_harmonized.csv", row.names = FALSE)
+write.csv(x = ANPP_BNPP_harmonized, row.names = F, na = '',
+          file = file.path("deluge", "data", "R_exports","ANPP_harmonized.csv"))
 
-drive_upload(
-  media = "ANPP_harmonized.csv",
-  path = file.path("deluge", "data","R_exports"),
-  name = "ANPP_harmonized.csv",
-  overwrite=T)
+# Upload to Drive
+googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "ANPP_harmonized.csv"), overwrite = T, path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+
 ```
 
 
