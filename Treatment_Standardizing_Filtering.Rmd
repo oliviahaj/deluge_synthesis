@@ -134,6 +134,13 @@ str(GCC)
 str(PRS)
 str(SR)
 str(VWC)
+
+# check unique years by study in raw files
+tapply(ANPP$year,ANPP$Study_shorthand,unique)
+tapply(GCC$year,GCC$Study_shorthand,unique)
+tapply(PRS$year,PRS$Study_shorthand,unique)
+tapply(SR$year,SR$Study_shorthand,unique)
+tapply(VWC$year,VWC$Study_shorthand,unique)
 ```
 
 ```{r correct trt names}
@@ -216,8 +223,7 @@ PRS_recode <- PRS %>%
     as.factor(plot)))%>%
   # fit mismatched name of my study
   mutate(Study_shorthand=if_else(Study_shorthand=="Condon_SLs","Condon_SL",Study_shorthand))%>%
-  filter(!is.na(trt))%>%
-  filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
+  filter(!is.na(trt))
   
 # check data again and unique trts for each study
 str(PRS_recode)
@@ -232,20 +238,23 @@ Tooley_path<-googledrive::drive_download(file = "Tooley_DRE_GCC.csv",
                               overwrite = T,
                               path = file.path("deluge", 'data',"Tooley_DRE_GCC.csv"))
 Tooley_GCC<-read.csv("deluge/data/Tooley_DRE_GCC.csv")
+tapply(Tooley_GCC$Year,Tooley_GCC$Date, unique)
 
 Tooley_DRE_recode<-Tooley_GCC%>%
   mutate(trt=paste("Leg.",DroughtTreatment,"_","Trt.",WaterTreatment,sep=""),
          Study_shorthand="Tooley_DRE",
          study_trt=paste(Study_shorthand,trt,sep="_"),
          Variable="GCC",
-         block=NA)%>%
+         block="NA")%>%
   filter(WaterTreatment %in% c("LTA","Deluge"))%>%
   rename(date=Date,plot=Plot,year=Year,GCC=Greenness)%>%
   mutate(date=as.Date(date,format="%Y-%m-%d"),
          doy=yday(date))%>%
+  mutate(date=as.character(date))%>%
   select(c(date,plot,trt,GCC,Study_shorthand,Variable,year,doy,study_trt,block))
 
 str(Tooley_DRE_recode)
+tapply(Tooley_DRE_recode$year,Tooley_DRE_recode$date, unique)
 
 # combine Tooley in
 GCC_add<-rbind(GCC,Tooley_DRE_recode)
@@ -274,16 +283,22 @@ GCC_recode <- GCC %>%
     Study_shorthand == "Linabury_ChANGE", 
     paste(as.factor(plot),as.factor(trt),sep="_"),
     as.factor(plot)))%>%
-  filter(!is.na(trt))%>%
-  filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
+  mutate(year=case_when(year < 99 ~ as.integer(paste0("20",year)),
+                        TRUE ~ year))%>%
+  filter(!is.na(trt))
   
 # check data again and unique trts for each study
 str(GCC_recode)
 tapply(GCC_recode$trt,GCC_recode$Study_shorthand,unique)
+tapply(GCC$year, GCC$Study_shorthand, unique)
+# view(GCC_recode)
 
 #### SR ####
 # check study shorthand and levels of trts in each
 tapply(SR$trt,SR$Study_shorthand,unique)
+# and year labels
+tapply(SR_recode$year,SR_recode$Study_shorthand,unique)
+
 
 # recode trts by study, leave trts we don't want out (replaced with NA) & filter out trt==NA
 SR_recode <- SR %>%
@@ -302,12 +317,15 @@ SR_recode <- SR %>%
                                                  "Leg.Drought_Trt.Deluge"~"DR_DEL",
                                                  "Leg.Control_Trt.LTA"~"CON",
                                                  "Leg.Control_Trt.Deluge"~"CON_DEL")))%>%
+  mutate(year=case_when(year < 99 ~ as.integer(paste0("20",year)),
+                        TRUE ~ year))%>%
   filter(!is.na(trt))
   
 # check data again and unique trts for each study
 str(SR_recode)
 tapply(SR_recode$trt,SR_recode$Study_shorthand,unique)
-
+# and year labels
+tapply(SR_recode$year,SR_recode$Study_shorthand,unique)
 
 #### VWC ####
 # check study shorthand and levels of trts in each
@@ -335,26 +353,36 @@ VWC_recode <- VWC %>%
     Study_shorthand == "Linabury_ChANGE", 
     paste(as.factor(plot),as.factor(trt),sep="_"),
     as.factor(plot)))%>%
-  filter(!is.na(trt))%>%
-  filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
+  filter(!is.na(trt))
 
 
 # check data again and unique trts for each study
 str(VWC_recode)
 tapply(VWC_recode$trt,VWC_recode$Study_shorthand,unique)
+# and year labels
+tapply(VWC_recode$year,VWC_recode$Study_shorthand,unique)
 
 ```
 
 ```{r export filtered datafiles}
 # sanity check each
+# check unique years by study in raw files
+tapply(ANPP_recode$year,ANPP_recode$Study_shorthand,unique)
+tapply(GCC_recode$year,GCC_recode$Study_shorthand,unique)
+tapply(PRS_recode$year,PRS_recode$Study_shorthand,unique)
+tapply(SR_recode$year,SR_recode$Study_shorthand,unique)
+tapply(VWC_recode$year,VWC_recode$Study_shorthand,unique)
+
+
 str(ANPP) # 2207
 str(ANPP_recode) # 1537
 
 str(PRS) # 2122
 str(PRS_recode) # 2064
 
-str(GCC) # 4937
-str(GCC_recode) # 4017
+str(GCC) # 6684
+str(Tooley_DRE_recode) # 1747
+str(GCC_recode) # 6064
 
 str(SR) # 4285
 str(SR_recode) # 3613
@@ -363,52 +391,52 @@ str(VWC) # 7627
 str(VWC_recode) # 6003
 # view(VWC_recode)
 
-# export each
-# ANPP
-write.csv(x = ANPP_recode, row.names = F, na = '',
-          file = file.path("deluge", "data", "R_exports","ANPP_filtered.csv"))
-
-drive_upload(
-  media = "ANPP_filtered.csv",
-  path = file.path("deluge", "data","R_exports"),
-  name = "ANPP_filtered.csv",
-  overwrite = T)
-
+# # export each
+# # ANPP
+# write.csv(x = ANPP_recode, row.names = F, na = '',
+#           file = file.path("deluge", "data", "R_exports","ANPP_filtered.csv"))
+# 
+# drive_upload(
+#   media = "ANPP_filtered.csv",
+#   path = file.path("deluge", "data","R_exports"),
+#   name = "ANPP_filtered.csv",
+#   overwrite = T)
+# 
 # PRS
-write.csv(PRS_recode, "PRS_filtered.csv", row.names = FALSE)
-
-drive_upload(
-  media = "PRS_filtered.csv",
-  path = file.path("deluge", "data","R_exports"),
-  name = "PRS_filtered.csv",
-  overwrite = T)
-
-# GCC
-write.csv(GCC_recode, "GCC_filtered.csv", row.names = FALSE)
-
-drive_upload(
-  media = "GCC_filtered.csv",
-  path = file.path("deluge", "data","R_exports"),
-  name = "GCC_filtered.csv",
-  overwrite = T)
-
-# SR
-write.csv(SR_recode, "SR_filtered.csv", row.names = FALSE)
-
-drive_upload(
-  media = "SR_filtered.csv",
-  path = file.path("deluge", "data","R_exports"),
-  name = "SR_filtered.csv",
-  overwrite = T)
-
+# write.csv(PRS_recode, "PRS_filtered.csv", row.names = FALSE)
+# 
+# drive_upload(
+#   media = "PRS_filtered.csv",
+#   path = file.path("deluge", "data","R_exports"),
+#   name = "PRS_filtered.csv",
+#   overwrite = T)
+# 
+# # GCC
+# write.csv(GCC_recode, "GCC_filtered.csv", row.names = FALSE)
+# 
+# drive_upload(
+#   media = "GCC_filtered.csv",
+#   path = file.path("deluge", "data","R_exports"),
+#   name = "GCC_filtered.csv",
+#   overwrite = T)
+# 
+# # SR
+# write.csv(SR_recode, "SR_filtered.csv", row.names = FALSE)
+# 
+# drive_upload(
+#   media = "SR_filtered.csv",
+#   path = file.path("deluge", "data","R_exports"),
+#   name = "SR_filtered.csv",
+#   overwrite = T)
+# 
 # VWC
-write.csv(VWC_recode, "VWC_20cm_filtered.csv", row.names = FALSE)
-
-drive_upload(
-  media = "VWC_20cm_filtered.csv",
-  path = file.path("deluge", "data","R_exports"),
-  name = "VWC_20cm_filtered.csv",
-  overwrite = T)
+# write.csv(VWC_recode, "VWC_20cm_filtered.csv", row.names = FALSE)
+# 
+# drive_upload(
+#   media = "VWC_20cm_filtered.csv",
+#   path = file.path("deluge", "data","R_exports"),
+#   name = "VWC_20cm_filtered.csv",
+#   overwrite = T)
 
 ```
 

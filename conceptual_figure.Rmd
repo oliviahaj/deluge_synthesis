@@ -1,0 +1,375 @@
+---
+title: "concept_plots"
+author: "Kathy Condon"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup}
+library(knitr)
+library(tidyverse)
+library(dplyr)
+library(car)
+library(emmeans)
+library(multcomp)
+library(lmerTest)
+library(lme4)
+library(RColorBrewer)
+library(rstatix)
+library(tidyr)
+library(ggpubr)
+library(lubridate)
+library(ggtext)
+library(ggh4x)
+library(ggpattern)
+library(data.table)
+library(MuMIn)
+library(scales)
+library(performance)
+library(googledrive)
+
+c("#4477aa","#66ccee","#228833","#ccbb44","#ee6677","#aa3377","#bbbbbb")
+
+c("#332288","#88ccee","#44aa99","#117733","#999933","#ddcc77","#cc6677","#882255","#aa4499")
+```
+
+```{r set file directories - local}
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge","data"), showWarnings = F)
+dir.create(file.path("deluge","data","R_exports"))
+dir.create(file.path("deluge","figures"))
+dir.create(file.path("deluge","precip_data"))
+
+```
+
+```{r read in continuous files - choose 2 to refresh connection}
+drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3?usp=drive_link"))
+
+## check id's of duplicate exported files
+googledrive::drive_reveal("precip_data_cleaned_trts.csv", "modified_time")%>%
+  select(name,id,modified_time)
+
+## read in by Drive ID instead of (duplicated) filename
+googledrive::drive_download(file = googledrive::as_id("1x0HQyVwv3iwIwPLK0OBYYfT3qoS3Tw-h"), 
+                              overwrite = T,
+                              path = file.path("deluge", "precip_data", "precip_data_cleaned_trts.csv"))
+
+## read in to R
+ppt<-read.csv("deluge/precip_data/precip_data_cleaned_trts.csv")
+str(ppt)
+
+## check names
+unique(ppt$Study_shorthand)
+```
+
+```{r precip plot- annaul year for gs studies only}
+gs.dels<-subset(ppt,Study_shorthand %in% c("Post2020","Post2021","Condon_SL","Hoover2022_CPER_DEX","Linabury_ChANGE","CCE"))
+str(gs.dels)
+
+gs.dels.plotting<-gs.dels%>%
+  mutate(combined_trts=factor(combined_trts,levels=c("Post2020: CON","Post2020: EARLY_DEL",
+                                                     "Post2020: MID_DEL","Post2020: LATE_DEL",
+                                                     "Post2021: CON","Post2021: DEL_20","Post2021: DEL_40",
+                                                     "Post2021: DEL_60","Post2021: DEL_80","Post2021: DEL_100",
+                                                     "Post2021: DEL_120",
+                                                     "Hoover2022_CPER_DEX: DR", "Hoover2022_CPER_DEX: DR_DEL",
+                                                     "Condon_SL: CON", "Condon_SL: CON_DEL",
+                                                     "Linabury_ChANGE: CON","Linabury_ChANGE: CON_DEL",
+                                                     "CCE: CON","CCE: CON_DEL","CCE: DR","CCE: DR_DEL")))
+
+combined_colors<-c(
+  # Post2020 - shades of purple
+  "Post2020: CON"       = "#AA3377",
+  "Post2020: EARLY_DEL" = "#AA3377",
+  "Post2020: MID_DEL"   = "#AA3377",
+  "Post2020: LATE_DEL"  = "#AA3377",
+  
+  # Post2021 - shades of blue
+  "Post2021: CON"       = "#4477AA",
+  "Post2021: DEL_20"    = "#4477AA",
+  "Post2021: DEL_40"    = "#4477AA",
+  "Post2021: DEL_60"    = "#4477AA",
+  "Post2021: DEL_80"    = "#4477AA",
+  "Post2021: DEL_100"   = "#4477AA",
+  "Post2021: DEL_120"   = "#4477AA",
+  
+  # Hoover - shades of green
+  "Hoover2022_CPER_DEX: DR"     = "#CCBB44",
+  "Hoover2022_CPER_DEX: DR_DEL" = "#CCBB44",
+  
+  # Condon_SL - shades of orange
+  "Condon_SL: CON"     = "#228833",
+  "Condon_SL: CON_DEL" = "#228833",
+  
+  # Linabury - shades of pink
+  "Linabury_ChANGE: CON"     = "#66CCEE",
+  "Linabury_ChANGE: CON_DEL" = "#66CCEE",
+  
+  # CCE - shades of brown/tan
+  "CCE: CON"     = "#EE6677",
+  "CCE: CON_DEL" = "#EE6677",
+  "CCE: DR"      = "#EE6677",
+  "CCE: DR_DEL"  = "#EE6677")
+
+combined_patterns<-c(
+  # Post2020 - shades of purple
+  "Post2020: CON"       = "stripe",
+  "Post2020: EARLY_DEL" = "none",
+  "Post2020: MID_DEL"   = "none",
+  "Post2020: LATE_DEL"  = "none",
+  
+  # Post2021 - shades of blue
+  "Post2021: CON"       = "stripe",
+  "Post2021: DEL_20"    = "none",
+  "Post2021: DEL_40"    = "none",
+  "Post2021: DEL_60"    = "none",
+  "Post2021: DEL_80"    = "none",
+  "Post2021: DEL_100"   = "none",
+  "Post2021: DEL_120"   = "none",
+  
+  # Hoover - shades of green
+  "Hoover2022_CPER_DEX: DR"     = "stripe",
+  "Hoover2022_CPER_DEX: DR_DEL" = "none",
+  
+  # Condon_SL - shades of orange
+  "Condon_SL: CON"     = "stripe",
+  "Condon_SL: CON_DEL" = "none",
+  
+  # Linabury - shades of pink
+  "Linabury_ChANGE: CON"     = "stripe",
+  "Linabury_ChANGE: CON_DEL" = "none",
+  
+  # CCE - shades of brown/tan
+  "CCE: CON"     = "stripe",
+  "CCE: CON_DEL" = "none",
+  "CCE: DR"      = "stripe",
+  "CCE: DR_DEL"  = "none")
+
+# try pattern (rough)
+# ggplot(gs.dels,aes(x=year,y=ann_ppt,fill=Our_trt,pattern=Study_shorthand))+
+#   geom_bar_pattern(stat="identity",position="dodge",
+#                    pattern_fill="black",
+#                    pattern_density=0.3,
+#                    pattern_color="black",
+#                    pattern_spacing=0.03)+
+#   scale_x_continuous(limits=c(2016.5,2026),expand=c(0,0),breaks=c(2017:2026))+
+#   scale_y_continuous(limits=c(0,600),expand=c(0,0))+
+#   # facet_wrap(~Study_shorthand,ncol=1)+
+#   theme_classic()
+
+# try outline colors
+ggplot(gs.dels.plotting,aes(x=year,y=ann_ppt,fill=combined_trts,pattern=combined_trts))+
+  geom_bar_pattern(stat="identity",
+                   position=position_dodge2(preserve="single"),
+                   # position=position_dodge(width=0.9),
+                   width=0.9,linewidth=0.75,color="black",
+                   pattern_fill="black",
+                   pattern_density=0.3,pattern_spacing=0.01,
+                   pattern_color="black")+
+  scale_fill_manual(values=combined_colors)+
+  scale_pattern_manual(values=combined_patterns)+
+  scale_x_continuous(limits=c(2016.5,2026),expand=c(0,0),breaks=c(2017:2026))+
+  scale_y_continuous(limits=c(0,600),expand=c(0,0))+
+  # facet_wrap(~Study_shorthand,ncol=1)+
+  theme_classic()+
+  theme(
+    legend.position="none"
+  )
+
+
+```
+
+```{r water years}
+water.yrs.adjusted<-ppt%>%
+  mutate(water_yr_Oct=(m1+m2+m3+m4+m5+m6+m7+m8+m9+m10+m11+m12)) # check matches annual - it does
+
+all.plotting<-ppt%>%
+  mutate(combined_trts=paste0(Study_shorthand,": ",Our_trt))%>%
+  mutate(combined_trts=factor(combined_trts,levels=c("Post2020: CON","Post2020: EARLY_DEL",
+                                                     "Post2020: MID_DEL","Post2020: LATE_DEL",
+                                                     "Post2021: CON","Post2021: DEL_20","Post2021: DEL_40",
+                                                     "Post2021: DEL_60","Post2021: DEL_80","Post2021: DEL_100",
+                                                     "Post2021: DEL_120",
+                                                     "Hoover2022_CPER_DEX: DR", "Hoover2022_CPER_DEX: DR_DEL",
+                                                     "Condon_SL: CON", "Condon_SL: CON_DEL",
+                                                     "Linabury_ChANGE: CON","Linabury_ChANGE: CON_DEL",
+                                                     "CCE: CON","CCE: CON_DEL","CCE: DR","CCE: DR_DEL",
+                                                     "Hajek2024: CON","Hajek2024: SEP_DEL","Hajek2024: OCT_DEL",
+                                                     "Tooley_DRE: CON","Tooley_DRE: CON_DEL",
+                                                     "Tooley_DRE: DR","Tooley_DRE: DR_DEL")))
+unique(all.plotting$combined_trts)
+
+combined_colors<-c(
+  # Post2020
+  "Post2020: CON"       = "#332288",
+  "Post2020: EARLY_DEL" = "#332288",
+  "Post2020: MID_DEL"   = "#332288",
+  "Post2020: LATE_DEL"  = "#332288",
+  
+  # Post2021
+  "Post2021: CON"       = "#88ccee",
+  "Post2021: DEL_20"    = "#88ccee",
+  "Post2021: DEL_40"    = "#88ccee",
+  "Post2021: DEL_60"    = "#88ccee",
+  "Post2021: DEL_80"    = "#88ccee",
+  "Post2021: DEL_100"   = "#88ccee",
+  "Post2021: DEL_120"   = "#88ccee",
+  
+  # Hoover
+  "Hoover2022_CPER_DEX: DR"     = "#999933",
+  "Hoover2022_CPER_DEX: DR_DEL" = "#999933",
+  
+  # Condon_SL
+  "Condon_SL: CON"     = "#117733",
+  "Condon_SL: CON_DEL" = "#117733",
+  
+  # Linabury
+  "Linabury_ChANGE: CON"     = "#cc6677",
+  "Linabury_ChANGE: CON_DEL" = "#cc6677",
+  
+  # CCE
+  "CCE: CON"     = "#ddcc77",
+  "CCE: CON_DEL" = "#ddcc77",
+  "CCE: DR"      = "#ddcc77",
+  "CCE: DR_DEL"  = "#ddcc77",
+  
+  # Hajek
+  "Hajek2024: CON" = "#44AA99",
+  "Hajek2024: SEP_DEL" = "#44AA99",
+  "Hajek2024: OCT_DEL" = "#44AA99",
+  
+  # Tooley - 
+  "Tooley_DRE: CON" = "#882255",
+  "Tooley_DRE: CON_DEL" = "#882255",
+  "Tooley_DRE: DR" = "#882255",
+  "Tooley_DRE: DR_DEL" ="#882255"
+  )
+
+combined_patterns<-c(
+  # Post2020
+  "Post2020: CON"       = "stripe",
+  "Post2020: EARLY_DEL" = "none",
+  "Post2020: MID_DEL"   = "none",
+  "Post2020: LATE_DEL"  = "none",
+  
+  # Post2021
+  "Post2021: CON"       = "stripe",
+  "Post2021: DEL_20"    = "none",
+  "Post2021: DEL_40"    = "none",
+  "Post2021: DEL_60"    = "none",
+  "Post2021: DEL_80"    = "none",
+  "Post2021: DEL_100"   = "none",
+  "Post2021: DEL_120"   = "none",
+  
+  # Hoover
+  "Hoover2022_CPER_DEX: DR"     = "stripe",
+  "Hoover2022_CPER_DEX: DR_DEL" = "none",
+  
+  # Condon_SL
+  "Condon_SL: CON"     = "stripe",
+  "Condon_SL: CON_DEL" = "none",
+  
+  # Linabury
+  "Linabury_ChANGE: CON"     = "stripe",
+  "Linabury_ChANGE: CON_DEL" = "none",
+  
+  # CCE
+  "CCE: CON"     = "stripe",
+  "CCE: CON_DEL" = "none",
+  "CCE: DR"      = "stripe",
+  "CCE: DR_DEL"  = "none",
+  
+  # Hajek
+  "Hajek2024: CON" = "stripe",
+  "Hajek2024: SEP_DEL" = "none",
+  "Hajek2024: OCT_DEL" = "none",
+  
+  # Tooley - 
+  "Tooley_DRE: CON" = "stripe",
+  "Tooley_DRE: CON_DEL" = "none",
+  "Tooley_DRE: DR" = "stripe",
+  "Tooley_DRE: DR_DEL" ="none"
+  
+  )
+
+combined_labels<-c(
+  # Post2020
+  "Post2020: CON"       = "amb",
+  "Post2020: EARLY_DEL" = "+70mm early",
+  "Post2020: MID_DEL"   = "+70mm mid",
+  "Post2020: LATE_DEL"  = "+70mm late",
+  
+  # Post2021
+  "Post2021: CON"       = "amb",
+  "Post2021: DEL_20"    = "+20mm",
+  "Post2021: DEL_40"    = "+40mm",
+  "Post2021: DEL_60"    = "+60mm",
+  "Post2021: DEL_80"    = "+80mm",
+  "Post2021: DEL_100"   = "+100mm",
+  "Post2021: DEL_120"   = "+120mm",
+  
+  # Hoover
+  "Hoover2022_CPER_DEX: DR"     = "exp. drought",
+  "Hoover2022_CPER_DEX: DR_DEL" = "+60mm",
+  
+  # Condon_SL
+  "Condon_SL: CON"     = "amb",
+  "Condon_SL: CON_DEL" = "+60mm",
+  
+  # Linabury
+  "Linabury_ChANGE: CON"     = "amb",
+  "Linabury_ChANGE: CON_DEL" = "+40mm",
+  
+  # CCE
+  "CCE: CON"     = "amb",
+  "CCE: CON_DEL" = "+60mm",
+  "CCE: DR"      = "exp. drought",
+  "CCE: DR_DEL"  = "+60mm",
+  
+  # Hajek
+  "Hajek2024: CON" = "amb",
+  "Hajek2024: SEP_DEL" = "+100mm (Sept.)",
+  "Hajek2024: OCT_DEL" = "+100mm (Oct.)",
+  
+  # Tooley - 
+  "Tooley_DRE: CON" = "LTA",
+  "Tooley_DRE: CON_DEL" = "+60mm/105mm",
+  "Tooley_DRE: DR" = "LTA (drought leg.)",
+  "Tooley_DRE: DR_DEL" ="+60mm/105mm"
+  )
+
+# plot
+plot<-ggplot(all.plotting,aes(x=year,y=ann_ppt,fill=combined_trts,pattern=combined_trts))+
+  geom_bar_pattern(stat="identity",
+                   position=position_dodge2(preserve="single",padding=0),
+                   # position=position_dodge(width=0.9),
+                   width=0.9,linewidth=0.75,color="black",
+                   pattern_fill="black",
+                   pattern_density=0.3,pattern_spacing=0.01,
+                   pattern_color="black")+
+  scale_fill_manual(values=combined_colors)+
+  scale_pattern_manual(values=combined_patterns)+
+  geom_text(aes(label=combined_labels[as.character(combined_trts)],
+              y=ann_ppt + 10, group=combined_trts),
+          position=position_dodge2(preserve="single", padding=0, width=0.9),
+          angle=90,
+          size=3.5,
+          hjust=0,vjust=0.5)+
+  scale_x_continuous(limits=c(2016.5,2026),expand=c(0,0),breaks=c(2017:2026))+
+  scale_y_continuous(limits=c(0,600),expand=c(0,0))+
+  # facet_wrap(~Study_shorthand,ncol=1)+
+  ylab("Water Year Precipitation (mm)")+
+  theme_classic(base_size=14)+
+  theme(
+    legend.position="none"
+  )
+
+
+ggsave("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/all_trts_precip.pdf",plot,width=16,height=8.5)
+
+
+```
+
+
+
+

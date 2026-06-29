@@ -80,12 +80,16 @@ del.info<-read.csv("deluge/data/deluge_characteristics_mergeable.csv")
 ```{r fix rest of data for merge}
 GCC.dat<-GCC%>%
   mutate(var=as.numeric(GCC))
+unique(GCC.dat$Study_shorthand)
 
 VWC.dat<-VWC%>%
   mutate(var=as.numeric(VWC))
+unique(VWC.dat$Study_shorthand)
 
 SR.dat<-SR%>%
   mutate(var=as.numeric(efflux))
+unique(SR.dat$Study_shorthand)
+
 
 con.dat<-list(VWC.dat,GCC.dat,SR.dat)
 con.labels<-list("20 cm VWC (%)","GCC","Efflux")
@@ -99,7 +103,6 @@ con.av.adj<-list()
 
 con.merge<-list()
 con.merge.check<-list()
-
 
 ### check lists
 lapply(con.dat,head,5)
@@ -115,8 +118,7 @@ for (i in seq_along(con.dat)){
     mutate(new.date=as.Date(date,format="%Y-%m-%d"),
          trt=factor(trt),
          Study_shorthand=factor(Study_shorthand))%>%
-    mutate(year=year(new.date),
-         mon=month(new.date))
+    mutate(mon=month(new.date))
   # save 
   con.raw.adj[[i]]<-cleanup.dat
   
@@ -133,8 +135,18 @@ for (i in seq_along(con.dat)){
   mutate(Study_trt=paste(Study_shorthand,trt,sep=": "))
   
   # add in deluge characteristics info
-  merge.daily<-merge(daily.avs,del.info,by=c("Study_shorthand","year","trt"))
+  merge.daily<-merge(daily.avs,del.info,by=c("Study_shorthand","year","trt"),all.x=TRUE)
   head(merge.daily,5)
+  
+  merge.daily %>% filter(Study_shorthand == "Tooley_DRE") %>% distinct(year, new.date)
+  
+  # check
+  ## Before merge
+  pre_merge_studies<-unique(daily.avs$Study_shorthand) # Tooley included
+  ## After merge
+  post_merge_studies<-unique(merge.daily$Study_shorthand) # Tooley still included
+  ## check if anything was lost
+  setdiff(pre_merge_studies, post_merge_studies)
   
   # cleanup dates again and split out Alex and Greg (paired controls DR with DR+DEL and CON with CON+DEL)
   daily<-merge.daily%>%
@@ -229,14 +241,15 @@ rel.20.across<-response.periods%>%
 
 ### get ranges for each within each study and year -- this may be more relevant if we want to consider asymmetric responses -- so dry years are weighted differently than wet
 rel.20.within<-response.periods%>%
-  group_by(label,Study_shorthand,year)%>%
+  # group_by(label,Study_shorthand,year)%>%
+  group_by(label,year)%>% # change within to just within years but not w/i study/years
   summarise(range_within_studyyrs=max(CON_av,na.rm=TRUE)-min(CON_av,na.rm=TRUE))
 
 #### metric comparisons ####
 # compare 20% of control (raw) vs. 20% relative to total range vs. 20% relative to range in that study/year
 all.comps<-response.periods%>%
   left_join(rel.20.across,by="label")%>%
-  left_join(rel.20.within,by=c("label","Study_shorthand","year"))%>%
+  left_join(rel.20.within,by=c("label","year"))%>%
   mutate(range_diff_across=((DEL_av-CON_av)/range_across_studyyrs)*100,
          del_response_across=case_when(
            range_diff_across <= -20 ~ "NEGATIVE",
@@ -278,34 +291,38 @@ for (i in con.av.adj){
     pos.dates.con<-all.comps%>%
       filter(Study_shorthand==s,
              label==y.lab,
-             del_response_across=="POSITIVE",
+             # del_response_across=="POSITIVE",
+             del_response_within=="POSITIVE",
              grepl("CON$",CON_type))
     
     pos.dates.dr<-all.comps%>%
       filter(Study_shorthand==s,
              label==y.lab,
-             del_response_across=="POSITIVE",
+             # del_response_across=="POSITIVE",
+             del_response_within=="POSITIVE",
              grepl("DR$",CON_type))
     
     # get negative response dates
     neg.dates.con<-all.comps%>%
       filter(Study_shorthand==s,
              label==y.lab,
-             del_response_across=="NEGATIVE",
+             # del_response_across=="NEGATIVE",
+             del_response_within=="NEGATIVE",
              grepl("CON$",CON_type))
     
     neg.dates.dr<-all.comps%>%
       filter(Study_shorthand==s,
              label==y.lab,
-             del_response_across=="NEGATIVE",
+             # del_response_across=="NEGATIVE",
+             del_response_within=="NEGATIVE",
              grepl("DR$",CON_type))
     
     # plot lines for trts and wrap w/ years
-    plot<-ggplot(dat,aes(x=doy.date,y=av,group=trt,linetype=trt_type,color=Study_trt)) +
+    plot<-ggplot(dat,aes(x=as.Date(doy.date,format="%j"),y=av,group=trt,linetype=trt_type,color=Study_trt)) +
       geom_rect(aes(xmin=yday(del_start),xmax=yday(del_end),ymin=-Inf,ymax=Inf),color="lightblue",fill="lightblue",linetype="solid")+
-      geom_line() +
-      geom_point() +
-      geom_errorbar(aes(ymin=av-SE, ymax=av+SE), width=0.2) +
+      geom_line()+
+      geom_point()+
+      geom_errorbar(aes(ymin=av-SE, ymax=av+SE), width=0.2)+
       geom_text(data=pos.dates.con,aes(x=doy.date,y=max(dat$av,na.rm=TRUE)*1.05),
                 label="+",color="green4",size=3,inherit.aes=FALSE)+
       geom_text(data=neg.dates.con,aes(x=doy.date,y=max(dat$av,na.rm=TRUE)*1.05),
@@ -314,7 +331,7 @@ for (i in con.av.adj){
                 label="+",color="green4",size=3,inherit.aes=FALSE)+
       geom_text(data=neg.dates.dr,aes(x=doy.date,y=min(dat$av,na.rm=TRUE)*0.95),
                 label="-",color="red4",size=3,inherit.aes=FALSE)+
-      # scale_x_date(date_labels="%b %d") +
+      scale_x_date(date_labels="%b %d") +
       facet_wrap(~year)+
       labs(
         x="Date",
@@ -327,12 +344,12 @@ for (i in con.av.adj){
                    cols = unit(4.25, "in"))
     
     filename<-paste0("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/",s,"_",y.lab,".png")
-    ggsave(filename,plot,width=12,height=5)
+    ggsave(filename,plot,width=17,height=5)
   }
   
 }
 
-view(all.comps)
+# view(all.comps)
 
 # Export locally
 write.csv(x = all.comps, file = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_allcomps_periods.csv"))
