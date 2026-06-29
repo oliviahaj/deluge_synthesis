@@ -200,7 +200,10 @@ all.plotting<-ppt%>%
                                                      "CCE: CON","CCE: CON_DEL","CCE: DR","CCE: DR_DEL",
                                                      "Hajek2024: CON","Hajek2024: SEP_DEL","Hajek2024: OCT_DEL",
                                                      "Tooley_DRE: CON","Tooley_DRE: CON_DEL",
-                                                     "Tooley_DRE: DR","Tooley_DRE: DR_DEL")))
+                                                     "Tooley_DRE: DR","Tooley_DRE: DR_DEL"))) %>%
+  # fixing olivias
+  mutate(ann_ppt = ifelse(Study == "Hajek and Knapp 2024", ann_ppt - m9 + m9_prev, ann_ppt)) %>%
+  mutate(ann_ppt = ifelse(Study == "Tooley et al. DRE", ann_ppt - m9 + m9_prev, ann_ppt))
 unique(all.plotting$combined_trts)
 
 combined_colors<-c(
@@ -371,7 +374,7 @@ plot<-ggplot(all.plotting,aes(x=year,y=ann_ppt,fill=combined_trts,pattern=combin
     plot.margin=unit(c(1,1,1,1),unit="cm")
   )
 
-
+plot
 ggsave("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/all_trts_precip.png",plot,width=16,height=8.5)
 
 
