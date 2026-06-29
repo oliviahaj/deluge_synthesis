@@ -93,8 +93,6 @@ unique(SR.dat$Study_shorthand)
 
 con.dat<-list(VWC.dat,GCC.dat,SR.dat)
 con.labels<-list("20 cm VWC (%)","GCC","Efflux")
-
-view(SR.dat)
 ```
 
 ```{r loop continuous data manipulations}
@@ -106,25 +104,9 @@ con.av.adj<-list()
 con.merge<-list()
 con.merge.check<-list()
 
-
 ### check lists
 lapply(con.dat,head,5)
 con.labels
-
-### troubleshoot Greg data being dropped
-# # Check trt values for Tooley_DRE in raw data BEFORE the loop
-# GCC.dat %>% filter(Study_shorthand == "Tooley_DRE") %>% distinct(trt)
-# SR.dat %>%  filter(Study_shorthand == "Tooley_DRE") %>% distinct(trt)
-# del.info %>% filter(Study_shorthand == "Tooley_DRE") %>% distinct(trt)
-# # Are there any non-NA GCC values for Tooley_DRE at all?
-# GCC.dat %>% filter(Study_shorthand == "Tooley_DRE", !is.na(var))
-# names(GCC.dat)
-# # Fix Greg's date column based on doy (correct) to replace excel formatted date
-# GCC.dat<-GCC.dat%>%
-#   mutate(date=case_when(
-#     Study_shorthand=="Tooley_DRE" ~ as.Date(paste(year,doy,sep="-"),format="%Y-%j"),
-#     TRUE ~ as.Date(as.character(date),format="%Y-%m-%d")))
-# str(GCC.dat)
 
 ### cleanup and average data
 for (i in seq_along(con.dat)){
@@ -136,8 +118,7 @@ for (i in seq_along(con.dat)){
     mutate(new.date=as.Date(date,format="%Y-%m-%d"),
          trt=factor(trt),
          Study_shorthand=factor(Study_shorthand))%>%
-    mutate(year=year(new.date),
-         mon=month(new.date))
+    mutate(mon=month(new.date))
   # save 
   con.raw.adj[[i]]<-cleanup.dat
   
@@ -260,14 +241,15 @@ rel.20.across<-response.periods%>%
 
 ### get ranges for each within each study and year -- this may be more relevant if we want to consider asymmetric responses -- so dry years are weighted differently than wet
 rel.20.within<-response.periods%>%
-  group_by(label,Study_shorthand,year)%>%
+  # group_by(label,Study_shorthand,year)%>%
+  group_by(label,year)%>% # change within to just within years but not w/i study/years
   summarise(range_within_studyyrs=max(CON_av,na.rm=TRUE)-min(CON_av,na.rm=TRUE))
 
 #### metric comparisons ####
 # compare 20% of control (raw) vs. 20% relative to total range vs. 20% relative to range in that study/year
 all.comps<-response.periods%>%
   left_join(rel.20.across,by="label")%>%
-  left_join(rel.20.within,by=c("label","Study_shorthand","year"))%>%
+  left_join(rel.20.within,by=c("label","year"))%>%
   mutate(range_diff_across=((DEL_av-CON_av)/range_across_studyyrs)*100,
          del_response_across=case_when(
            range_diff_across <= -20 ~ "NEGATIVE",
@@ -336,11 +318,11 @@ for (i in con.av.adj){
              grepl("DR$",CON_type))
     
     # plot lines for trts and wrap w/ years
-    plot<-ggplot(dat,aes(x=doy.date,y=av,group=trt,linetype=trt_type,color=Study_trt)) +
+    plot<-ggplot(dat,aes(x=as.Date(doy.date,format="%j"),y=av,group=trt,linetype=trt_type,color=Study_trt)) +
       geom_rect(aes(xmin=yday(del_start),xmax=yday(del_end),ymin=-Inf,ymax=Inf),color="lightblue",fill="lightblue",linetype="solid")+
-      geom_line() +
-      geom_point() +
-      geom_errorbar(aes(ymin=av-SE, ymax=av+SE), width=0.2) +
+      geom_line()+
+      geom_point()+
+      geom_errorbar(aes(ymin=av-SE, ymax=av+SE), width=0.2)+
       geom_text(data=pos.dates.con,aes(x=doy.date,y=max(dat$av,na.rm=TRUE)*1.05),
                 label="+",color="green4",size=3,inherit.aes=FALSE)+
       geom_text(data=neg.dates.con,aes(x=doy.date,y=max(dat$av,na.rm=TRUE)*1.05),
@@ -349,7 +331,7 @@ for (i in con.av.adj){
                 label="+",color="green4",size=3,inherit.aes=FALSE)+
       geom_text(data=neg.dates.dr,aes(x=doy.date,y=min(dat$av,na.rm=TRUE)*0.95),
                 label="-",color="red4",size=3,inherit.aes=FALSE)+
-      # scale_x_date(date_labels="%b %d") +
+      scale_x_date(date_labels="%b %d") +
       facet_wrap(~year)+
       labs(
         x="Date",

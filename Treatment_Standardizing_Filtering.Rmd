@@ -285,8 +285,7 @@ GCC_recode <- GCC %>%
     as.factor(plot)))%>%
   mutate(year=case_when(year < 99 ~ as.integer(paste0("20",year)),
                         TRUE ~ year))%>%
-  filter(!is.na(trt))%>%
-  filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
+  filter(!is.na(trt))
   
 # check data again and unique trts for each study
 str(GCC_recode)
@@ -354,13 +353,14 @@ VWC_recode <- VWC %>%
     Study_shorthand == "Linabury_ChANGE", 
     paste(as.factor(plot),as.factor(trt),sep="_"),
     as.factor(plot)))%>%
-  filter(!is.na(trt))%>%
-  filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
+  filter(!is.na(trt))
 
 
 # check data again and unique trts for each study
 str(VWC_recode)
 tapply(VWC_recode$trt,VWC_recode$Study_shorthand,unique)
+# and year labels
+tapply(VWC_recode$year,VWC_recode$Study_shorthand,unique)
 
 ```
 
@@ -402,41 +402,41 @@ str(VWC_recode) # 6003
 #   name = "ANPP_filtered.csv",
 #   overwrite = T)
 # 
-# # PRS
-# write.csv(PRS_recode, "PRS_filtered.csv", row.names = FALSE)
-# 
-# drive_upload(
-#   media = "PRS_filtered.csv",
-#   path = file.path("deluge", "data","R_exports"),
-#   name = "PRS_filtered.csv",
-#   overwrite = T)
-# 
-# # GCC
-# write.csv(GCC_recode, "GCC_filtered.csv", row.names = FALSE)
-# 
-# drive_upload(
-#   media = "GCC_filtered.csv",
-#   path = file.path("deluge", "data","R_exports"),
-#   name = "GCC_filtered.csv",
-#   overwrite = T)
-# 
-# # SR
-# write.csv(SR_recode, "SR_filtered.csv", row.names = FALSE)
-# 
-# drive_upload(
-#   media = "SR_filtered.csv",
-#   path = file.path("deluge", "data","R_exports"),
-#   name = "SR_filtered.csv",
-#   overwrite = T)
-# 
-# VWC
-# write.csv(VWC_recode, "VWC_20cm_filtered.csv", row.names = FALSE)
-# 
-# drive_upload(
-#   media = "VWC_20cm_filtered.csv",
-#   path = file.path("deluge", "data","R_exports"),
-#   name = "VWC_20cm_filtered.csv",
-#   overwrite = T)
+# PRS
+write.csv(PRS_recode, "PRS_filtered.csv", row.names = FALSE)
+
+drive_upload(
+  media = "PRS_filtered.csv",
+  path = file.path("deluge", "data","R_exports"),
+  name = "PRS_filtered.csv",
+  overwrite = T)
+
+# GCC
+write.csv(GCC_recode, "GCC_filtered.csv", row.names = FALSE)
+
+drive_upload(
+  media = "GCC_filtered.csv",
+  path = file.path("deluge", "data","R_exports"),
+  name = "GCC_filtered.csv",
+  overwrite = T)
+
+# SR
+write.csv(SR_recode, "SR_filtered.csv", row.names = FALSE)
+
+drive_upload(
+  media = "SR_filtered.csv",
+  path = file.path("deluge", "data","R_exports"),
+  name = "SR_filtered.csv",
+  overwrite = T)
+
+VWC
+write.csv(VWC_recode, "VWC_20cm_filtered.csv", row.names = FALSE)
+
+drive_upload(
+  media = "VWC_20cm_filtered.csv",
+  path = file.path("deluge", "data","R_exports"),
+  name = "VWC_20cm_filtered.csv",
+  overwrite = T)
 
 ```
 
