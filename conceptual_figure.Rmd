@@ -63,125 +63,129 @@ unique(ppt$Study_shorthand)
 ```
 
 ```{r precip plot- annaul year for gs studies only}
-gs.dels<-subset(ppt,Study_shorthand %in% c("Post2020","Post2021","Condon_SL","Hoover2022_CPER_DEX","Linabury_ChANGE","CCE"))
-str(gs.dels)
-
-gs.dels.plotting<-gs.dels%>%
-  mutate(combined_trts=factor(combined_trts,levels=c("Post2020: CON","Post2020: EARLY_DEL",
-                                                     "Post2020: MID_DEL","Post2020: LATE_DEL",
-                                                     "Post2021: CON","Post2021: DEL_20","Post2021: DEL_40",
-                                                     "Post2021: DEL_60","Post2021: DEL_80","Post2021: DEL_100",
-                                                     "Post2021: DEL_120",
-                                                     "Hoover2022_CPER_DEX: DR", "Hoover2022_CPER_DEX: DR_DEL",
-                                                     "Condon_SL: CON", "Condon_SL: CON_DEL",
-                                                     "Linabury_ChANGE: CON","Linabury_ChANGE: CON_DEL",
-                                                     "CCE: CON","CCE: CON_DEL","CCE: DR","CCE: DR_DEL")))
-
-combined_colors<-c(
-  # Post2020 - shades of purple
-  "Post2020: CON"       = "#AA3377",
-  "Post2020: EARLY_DEL" = "#AA3377",
-  "Post2020: MID_DEL"   = "#AA3377",
-  "Post2020: LATE_DEL"  = "#AA3377",
-  
-  # Post2021 - shades of blue
-  "Post2021: CON"       = "#4477AA",
-  "Post2021: DEL_20"    = "#4477AA",
-  "Post2021: DEL_40"    = "#4477AA",
-  "Post2021: DEL_60"    = "#4477AA",
-  "Post2021: DEL_80"    = "#4477AA",
-  "Post2021: DEL_100"   = "#4477AA",
-  "Post2021: DEL_120"   = "#4477AA",
-  
-  # Hoover - shades of green
-  "Hoover2022_CPER_DEX: DR"     = "#CCBB44",
-  "Hoover2022_CPER_DEX: DR_DEL" = "#CCBB44",
-  
-  # Condon_SL - shades of orange
-  "Condon_SL: CON"     = "#228833",
-  "Condon_SL: CON_DEL" = "#228833",
-  
-  # Linabury - shades of pink
-  "Linabury_ChANGE: CON"     = "#66CCEE",
-  "Linabury_ChANGE: CON_DEL" = "#66CCEE",
-  
-  # CCE - shades of brown/tan
-  "CCE: CON"     = "#EE6677",
-  "CCE: CON_DEL" = "#EE6677",
-  "CCE: DR"      = "#EE6677",
-  "CCE: DR_DEL"  = "#EE6677")
-
-combined_patterns<-c(
-  # Post2020 - shades of purple
-  "Post2020: CON"       = "stripe",
-  "Post2020: EARLY_DEL" = "none",
-  "Post2020: MID_DEL"   = "none",
-  "Post2020: LATE_DEL"  = "none",
-  
-  # Post2021 - shades of blue
-  "Post2021: CON"       = "stripe",
-  "Post2021: DEL_20"    = "none",
-  "Post2021: DEL_40"    = "none",
-  "Post2021: DEL_60"    = "none",
-  "Post2021: DEL_80"    = "none",
-  "Post2021: DEL_100"   = "none",
-  "Post2021: DEL_120"   = "none",
-  
-  # Hoover - shades of green
-  "Hoover2022_CPER_DEX: DR"     = "stripe",
-  "Hoover2022_CPER_DEX: DR_DEL" = "none",
-  
-  # Condon_SL - shades of orange
-  "Condon_SL: CON"     = "stripe",
-  "Condon_SL: CON_DEL" = "none",
-  
-  # Linabury - shades of pink
-  "Linabury_ChANGE: CON"     = "stripe",
-  "Linabury_ChANGE: CON_DEL" = "none",
-  
-  # CCE - shades of brown/tan
-  "CCE: CON"     = "stripe",
-  "CCE: CON_DEL" = "none",
-  "CCE: DR"      = "stripe",
-  "CCE: DR_DEL"  = "none")
-
-# try pattern (rough)
-# ggplot(gs.dels,aes(x=year,y=ann_ppt,fill=Our_trt,pattern=Study_shorthand))+
-#   geom_bar_pattern(stat="identity",position="dodge",
+# gs.dels<-subset(ppt,Study_shorthand %in% c("Post2020","Post2021","Condon_SL","Hoover2022_CPER_DEX","Linabury_ChANGE","CCE"))
+# str(gs.dels)
+# 
+# gs.dels.plotting<-gs.dels%>%
+#   mutate(combined_trts=factor(combined_trts,levels=c("Post2020: CON","Post2020: EARLY_DEL",
+#                                                      "Post2020: MID_DEL","Post2020: LATE_DEL",
+#                                                      "Post2021: CON","Post2021: DEL_20","Post2021: DEL_40",
+#                                                      "Post2021: DEL_60","Post2021: DEL_80","Post2021: DEL_100",
+#                                                      "Post2021: DEL_120",
+#                                                      "Hoover2022_CPER_DEX: DR", "Hoover2022_CPER_DEX: DR_DEL",
+#                                                      "Condon_SL: CON", "Condon_SL: CON_DEL",
+#                                                      "Linabury_ChANGE: CON","Linabury_ChANGE: CON_DEL",
+#                                                      "CCE: CON","CCE: CON_DEL","CCE: DR","CCE: DR_DEL")))
+# 
+# combined_colors<-c(
+#   # Post2020 - shades of purple
+#   "Post2020: CON"       = "#AA3377",
+#   "Post2020: EARLY_DEL" = "#AA3377",
+#   "Post2020: MID_DEL"   = "#AA3377",
+#   "Post2020: LATE_DEL"  = "#AA3377",
+#   
+#   # Post2021 - shades of blue
+#   "Post2021: CON"       = "#4477AA",
+#   "Post2021: DEL_20"    = "#4477AA",
+#   "Post2021: DEL_40"    = "#4477AA",
+#   "Post2021: DEL_60"    = "#4477AA",
+#   "Post2021: DEL_80"    = "#4477AA",
+#   "Post2021: DEL_100"   = "#4477AA",
+#   "Post2021: DEL_120"   = "#4477AA",
+#   
+#   # Hoover - shades of green
+#   "Hoover2022_CPER_DEX: DR"     = "#CCBB44",
+#   "Hoover2022_CPER_DEX: DR_DEL" = "#CCBB44",
+#   
+#   # Condon_SL - shades of orange
+#   "Condon_SL: CON"     = "#228833",
+#   "Condon_SL: CON_DEL" = "#228833",
+#   
+#   # Linabury - shades of pink
+#   "Linabury_ChANGE: CON"     = "#66CCEE",
+#   "Linabury_ChANGE: CON_DEL" = "#66CCEE",
+#   
+#   # CCE - shades of brown/tan
+#   "CCE: CON"     = "#EE6677",
+#   "CCE: CON_DEL" = "#EE6677",
+#   "CCE: DR"      = "#EE6677",
+#   "CCE: DR_DEL"  = "#EE6677")
+# 
+# combined_patterns<-c(
+#   # Post2020 - shades of purple
+#   "Post2020: CON"       = "stripe",
+#   "Post2020: EARLY_DEL" = "none",
+#   "Post2020: MID_DEL"   = "none",
+#   "Post2020: LATE_DEL"  = "none",
+#   
+#   # Post2021 - shades of blue
+#   "Post2021: CON"       = "stripe",
+#   "Post2021: DEL_20"    = "none",
+#   "Post2021: DEL_40"    = "none",
+#   "Post2021: DEL_60"    = "none",
+#   "Post2021: DEL_80"    = "none",
+#   "Post2021: DEL_100"   = "none",
+#   "Post2021: DEL_120"   = "none",
+#   
+#   # Hoover - shades of green
+#   "Hoover2022_CPER_DEX: DR"     = "stripe",
+#   "Hoover2022_CPER_DEX: DR_DEL" = "none",
+#   
+#   # Condon_SL - shades of orange
+#   "Condon_SL: CON"     = "stripe",
+#   "Condon_SL: CON_DEL" = "none",
+#   
+#   # Linabury - shades of pink
+#   "Linabury_ChANGE: CON"     = "stripe",
+#   "Linabury_ChANGE: CON_DEL" = "none",
+#   
+#   # CCE - shades of brown/tan
+#   "CCE: CON"     = "stripe",
+#   "CCE: CON_DEL" = "none",
+#   "CCE: DR"      = "stripe",
+#   "CCE: DR_DEL"  = "none")
+# 
+# # try pattern (rough)
+# # ggplot(gs.dels,aes(x=year,y=ann_ppt,fill=Our_trt,pattern=Study_shorthand))+
+# #   geom_bar_pattern(stat="identity",position="dodge",
+# #                    pattern_fill="black",
+# #                    pattern_density=0.3,
+# #                    pattern_color="black",
+# #                    pattern_spacing=0.03)+
+# #   scale_x_continuous(limits=c(2016.5,2026),expand=c(0,0),breaks=c(2017:2026))+
+# #   scale_y_continuous(limits=c(0,600),expand=c(0,0))+
+# #   # facet_wrap(~Study_shorthand,ncol=1)+
+# #   theme_classic()
+# 
+# # try outline colors
+# ggplot(gs.dels.plotting,aes(x=year,y=ann_ppt,fill=combined_trts,pattern=combined_trts))+
+#   geom_bar_pattern(stat="identity",
+#                    position=position_dodge2(preserve="single"),
+#                    # position=position_dodge(width=0.9),
+#                    width=0.9,linewidth=0.75,color="black",
 #                    pattern_fill="black",
-#                    pattern_density=0.3,
-#                    pattern_color="black",
-#                    pattern_spacing=0.03)+
+#                    pattern_density=0.3,pattern_spacing=0.01,
+#                    pattern_color="black")+
+#   scale_fill_manual(values=combined_colors)+
+#   scale_pattern_manual(values=combined_patterns)+
 #   scale_x_continuous(limits=c(2016.5,2026),expand=c(0,0),breaks=c(2017:2026))+
 #   scale_y_continuous(limits=c(0,600),expand=c(0,0))+
 #   # facet_wrap(~Study_shorthand,ncol=1)+
-#   theme_classic()
-
-# try outline colors
-ggplot(gs.dels.plotting,aes(x=year,y=ann_ppt,fill=combined_trts,pattern=combined_trts))+
-  geom_bar_pattern(stat="identity",
-                   position=position_dodge2(preserve="single"),
-                   # position=position_dodge(width=0.9),
-                   width=0.9,linewidth=0.75,color="black",
-                   pattern_fill="black",
-                   pattern_density=0.3,pattern_spacing=0.01,
-                   pattern_color="black")+
-  scale_fill_manual(values=combined_colors)+
-  scale_pattern_manual(values=combined_patterns)+
-  scale_x_continuous(limits=c(2016.5,2026),expand=c(0,0),breaks=c(2017:2026))+
-  scale_y_continuous(limits=c(0,600),expand=c(0,0))+
-  # facet_wrap(~Study_shorthand,ncol=1)+
-  theme_classic()+
-  theme(
-    legend.position="none"
-  )
+#   theme_classic()+
+#   theme(
+#     legend.position="none"
+#   )
 
 
 ```
 
 ```{r water years}
+## in this file -- m1 = January current, m2 = feb current, etc. BUT m10 is Oct. of PREVIOUS year
 water.yrs.adjusted<-ppt%>%
   mutate(water_yr_Oct=(m1+m2+m3+m4+m5+m6+m7+m8+m9+m10+m11+m12)) # check matches annual - it does
+
+## adjust Olivia and Greg by REPLACING m9 with m9_prev and leave all others alone! 
+## Greg -- replace the months he sent us with his months (only growing season) -- precip_underscore_cleaning.R
 
 all.plotting<-ppt%>%
   mutate(combined_trts=paste0(Study_shorthand,": ",Our_trt))%>%
@@ -340,6 +344,7 @@ combined_labels<-c(
 
 # plot
 plot<-ggplot(all.plotting,aes(x=year,y=ann_ppt,fill=combined_trts,pattern=combined_trts))+
+    geom_hline(yintercept=332.8,linewidth=0.75,linetype="dashed",color="gray75")+
   geom_bar_pattern(stat="identity",
                    position=position_dodge2(preserve="single",padding=0),
                    # position=position_dodge(width=0.9),
@@ -353,19 +358,21 @@ plot<-ggplot(all.plotting,aes(x=year,y=ann_ppt,fill=combined_trts,pattern=combin
               y=ann_ppt + 10, group=combined_trts),
           position=position_dodge2(preserve="single", padding=0, width=0.9),
           angle=90,
-          size=3.5,
+          size=4,
           hjust=0,vjust=0.5)+
   scale_x_continuous(limits=c(2016.5,2026),expand=c(0,0),breaks=c(2017:2026))+
   scale_y_continuous(limits=c(0,600),expand=c(0,0))+
   # facet_wrap(~Study_shorthand,ncol=1)+
   ylab("Water Year Precipitation (mm)")+
-  theme_classic(base_size=14)+
+  xlab("")+
+  theme_classic(base_size=16)+
   theme(
-    legend.position="none"
+    legend.position="none",
+    plot.margin=unit(c(1,1,1,1),unit="cm")
   )
 
 
-ggsave("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/all_trts_precip.pdf",plot,width=16,height=8.5)
+ggsave("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/all_trts_precip.png",plot,width=16,height=8.5)
 
 
 ```
