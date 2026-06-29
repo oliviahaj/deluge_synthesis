@@ -223,8 +223,7 @@ PRS_recode <- PRS %>%
     as.factor(plot)))%>%
   # fit mismatched name of my study
   mutate(Study_shorthand=if_else(Study_shorthand=="Condon_SLs","Condon_SL",Study_shorthand))%>%
-  filter(!is.na(trt))%>%
-  filter(!(Study_shorthand=="Linabury_ChANGE" & year=="2021"))
+  filter(!is.na(trt))
   
 # check data again and unique trts for each study
 str(PRS_recode)
@@ -430,7 +429,7 @@ str(VWC_recode) # 6003
 #   name = "SR_filtered.csv",
 #   overwrite = T)
 # 
-# # VWC
+# VWC
 # write.csv(VWC_recode, "VWC_20cm_filtered.csv", row.names = FALSE)
 # 
 # drive_upload(
