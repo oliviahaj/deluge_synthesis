@@ -156,16 +156,71 @@ func.rr <- paired.2 %>%
   group_by(func) %>%
   summarize(mean_lrr = mean(lrr_anpp), se_lrr = (sd(lrr_anpp))/(sqrt(n()))) 
 
-ggplot(func.rr, aes(mean_lrr, func)) +
-  xlim(-0.1, 1) +
+ggplot() +
+  geom_jitter(data = paired.2, aes(x = lrr_anpp, y = func, color = Study_shorthand, shape = func), 
+           alpha = 0.6, size = 2.2) +
+    geom_point(data = func.rr, aes(x = mean_lrr, y = func, shape = func), size = 3) +
+  geom_errorbar(data = func.rr, aes(x = mean_lrr, y = func,
+                                     xmin = mean_lrr - se_lrr, 
+                                     xmax = mean_lrr + se_lrr),
+                width = 0.2) +
   geom_vline(xintercept = 0, linetype = "dashed") +
-  geom_point(size = 3) +
-  geom_errorbar(aes(xmin = mean_lrr - se_lrr, xmax = mean_lrr + se_lrr)) +
   theme_bw(base_size = 14) +
   ylab("Functional Group") +
-  xlab("log(RR)")
+  xlab("ln(RR)")
 
 ```
+
+# Look at LRR vs. amount added
+
+```{r}
+lta.data <- trt.data%>%
+  rename(year = Year, Study_shorthand = Study) %>%
+  mutate(year = as.character(year))
+
+anpp.ppt <- anpp.4 %>%
+  left_join(lta.data)
+
+con <- anpp.ppt%>%
+  filter(del == 0) %>%
+  mutate(pairing = str_sub(trt, 1, 2)) %>%
+  select(pairing, Study_shorthand, year, func, mean_ANPP, se_ANPP, Difference.from.LTA.MAP) %>%
+  rename(ctrl_anpp = "mean_ANPP", 
+         ctrl_se = "se_ANPP")
+
+trts <- anpp.ppt  %>%
+  filter(del==1) %>%
+  mutate(pairing = str_sub(trt, 1, 2), 
+         pairing = ifelse(pairing == "DR", "DR", "CO")) %>%
+  select(pairing, Study_shorthand, year, func, mean_ANPP, se_ANPP,Size, Deluge.Timing) %>%
+  rename(del_anpp = "mean_ANPP", 
+         del_se = "se_ANPP")
+
+paired <- left_join(con, trts)
+
+paired.2 <- paired %>%
+  mutate(lrr_anpp = log(del_anpp/ctrl_anpp), 
+         anpp_diff = del_anpp - ctrl_anpp)
+
+ggplot(paired.2, aes(Size, lrr_anpp, color = Difference.from.LTA.MAP))+
+  geom_point(size = 2)+
+  theme_bw()+
+  ylab("ln(RR)")+
+  xlab("Deluge Size (mm)")+
+  facet_wrap(~func)+
+  scale_color_gradientn(colors = c("#8B4513", "#D2691E", "#F5DEB3", "#87CEEB", "#1E90FF", "#00008B"))
+
+ggplot(paired.2, aes(Size, anpp_diff, color = Difference.from.LTA.MAP))+
+  geom_point(size = 2)+
+  theme_bw()+
+  ylab("ANPP Difference (Deluge-Control)")+
+  xlab("Deluge Size (mm)")+
+  facet_wrap(~func)+
+  scale_color_gradientn(colors = c("#8B4513", "#D2691E", "#F5DEB3", "#87CEEB", "#1E90FF", "#00008B"))
+
+
+```
+
 
 # Look at ANPP vs. PPT
 ```{r}
