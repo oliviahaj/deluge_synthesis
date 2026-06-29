@@ -284,7 +284,7 @@ lta2 <- lta %>%
   #filter(month %in% c(4,5,6)) %>%
   summarize(monthly_ppt = sum(daily.tot)) %>%
   ungroup()%>%
-  filter(month %in% c(4,5,6)) %>%
+  #filter(month %in% c(4,5,6)) %>%
   group_by(month) %>%
   summarize(monthly_average = mean(monthly_ppt)) 
 
@@ -295,7 +295,24 @@ lta_mean_spring <- 36.47203 + 59.60872 + 47.97409
 #   theme_bw()
 #   
 
-MAP <- sum(lta2$monthly_average, na.rm = TRUE)
+MAP <- lta %>%
+  filter(Site == "SGS") %>%
+  filter(amb_drought == "amb_adjusted") %>%
+  select(DATE, daily.tot) %>%
+  mutate(DATE = as.Date(DATE, format = "%Y-%m-%d"), 
+         year = year(DATE), 
+         month = month(DATE)) %>%
+  group_by(year, month) %>%
+  #filter(month %in% c(4,5,6)) %>%
+  summarize(monthly_ppt = sum(daily.tot)) %>%
+  ungroup()%>%
+  mutate(year2 = ifelse(month > 9, year + 1, year)) %>%
+  filter(year2 > 1990) %>%
+  filter(year2 < 2022) %>%
+  group_by(year2) %>%
+  summarize(mean_ppt = sum(monthly_ppt))
+
+mean(MAP$mean_ppt)
 ```
 
 # get the model together
