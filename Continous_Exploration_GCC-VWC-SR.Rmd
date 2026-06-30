@@ -221,21 +221,21 @@ con.merge.check
 response.periods<-bind_rows(con.merge)
 
 # Export locally
-write.csv(x = response.periods, file = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_wide-response-periods_bydate.csv"))
-
-# Upload to Drive
-googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_wide-response-periods_bydate.csv"), overwrite = T,
-                        path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+# write.csv(x = response.periods, file = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_wide-response-periods_bydate.csv"))
+# 
+# # Upload to Drive
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_wide-response-periods_bydate.csv"), overwrite = T,
+#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 
 # bind rows
 daily.avs<-bind_rows(con.av.adj)
 
 # Export locally
-write.csv(x = daily.avs, file = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_long-dailyavs.csv"))
-
-# Upload to Drive
-googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_long-dailyavs.csv"), overwrite = T,
-                        path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+# write.csv(x = daily.avs, file = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_long-dailyavs.csv"))
+# 
+# # Upload to Drive
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_long-dailyavs.csv"), overwrite = T,
+#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 ```
 
 ```{r other metric checks - run prev chunk first}
@@ -272,10 +272,10 @@ obs.kable<-obs.summary%>%
 
 # view(obs.kable)
 
-write.csv(obs.kable, file = file.path("deluge", "data", "R_exports", "n_dates_and_observations.csv"), row.names = FALSE)
-
-googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "n_dates_and_observations.csv"), overwrite = T,
-                        path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+# write.csv(obs.kable, file = file.path("deluge", "data", "R_exports", "n_dates_and_observations.csv"), row.names = FALSE)
+# 
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "n_dates_and_observations.csv"), overwrite = T,
+#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 
 ######## NEXT STEPS - other response period measures ########
 
@@ -354,10 +354,10 @@ study.comps <- all.comps %>%
 
 # view(study.comps)
 
-write.csv(study.comps, file = file.path("deluge", "data", "R_exports", "RelPerc_nosig_comparisons_by_studyyr.csv"), row.names = FALSE)
-
-googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "RelPerc_nosig_comparisons_by_studyyr.csv"), overwrite = T,
-                        path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+# write.csv(study.comps, file = file.path("deluge", "data", "R_exports", "RelPerc_nosig_comparisons_by_studyyr.csv"), row.names = FALSE)
+# 
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "RelPerc_nosig_comparisons_by_studyyr.csv"), overwrite = T,
+#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 
 ##### **CONVERT RELATIVE PERCENTAGES TO UNITS** #####
 # Across all studies and years -- one row, one column per label
@@ -383,10 +383,10 @@ units.within.studyyrs.wide <- rel.20.within.all %>%
 
 view(units.within.studyyrs.wide)
 
-write.csv(units.within.studyyrs.wide, file = file.path("deluge", "data", "R_exports", "RelPerc_to_Units_withinstudyyrs.csv"), row.names = FALSE)
-
-googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "RelPerc_to_Units_withinstudyyrs.csv"), overwrite = T,
-                        path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+# write.csv(units.within.studyyrs.wide, file = file.path("deluge", "data", "R_exports", "RelPerc_to_Units_withinstudyyrs.csv"), row.names = FALSE)
+# 
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "RelPerc_to_Units_withinstudyyrs.csv"), overwrite = T,
+#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 ```
 
 ```{r graphing deluges}
@@ -470,11 +470,11 @@ for (i in con.av.adj){
 # view(all.comps)
 
 # Export locally
-write.csv(x = all.comps, file = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_allcomps_periods.csv"))
-
-# Upload to Drive
-googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_allcomps_periods.csv"), overwrite = T,
-                        path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+# write.csv(x = all.comps, file = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_allcomps_periods.csv"))
+# 
+# # Upload to Drive
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_allcomps_periods.csv"), overwrite = T,
+#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 ```
 
 ```{r monthly}
