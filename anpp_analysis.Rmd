@@ -51,6 +51,8 @@ googledrive::drive_download(file = anpp$id, overwrite = T, type = "csv",
 # Read in hoover ppt
 anpp <- read.csv(file = file.path("deluge","data","R_exports", "ANPP_filtered.csv"))
 
+tooley <- anpp %>%
+  filter(Study_shorthand == "Tooley_DRE")
 ```
 
 # Visualize the ANPP by type too
