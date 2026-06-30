@@ -188,7 +188,7 @@ ANPP_recode <- ANPP %>%
     Study_shorthand == "Tooley_DRE" & trt == "Leg.Control_Trt.LTA" ~ "CON",
     Study_shorthand == "Tooley_DRE" & trt == "Leg.Control_Trt.Deluge" ~ "CON_DEL",
     
-    TRUE ~ NA  # keep original value for any unmatched rows
+    TRUE ~ NA  # replace unmatched values with NA to get rid of extra trts we don't want
   )) %>%
   mutate(plot = if_else(
     Study_shorthand == "Linabury_ChANGE",
@@ -392,7 +392,7 @@ str(VWC_recode) # 6003
 # view(VWC_recode)
 
 # # export each
-# # ANPP
+# ANPP
 # write.csv(x = ANPP_recode, row.names = F, na = '',
 #           file = file.path("deluge", "data", "R_exports","ANPP_filtered.csv"))
 # 
