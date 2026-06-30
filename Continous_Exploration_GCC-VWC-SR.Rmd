@@ -78,24 +78,32 @@ del.info<-read.csv("deluge/data/deluge_characteristics_mergeable.csv")
 ```
 
 ```{r fix rest of data for merge}
+# GCC
+tapply(GCC$year, GCC$Study_shorthand, unique)
+
 GCC.dat<-GCC%>%
-  mutate(var=as.numeric(GCC))
+  mutate(var=as.numeric(GCC))%>%
+  filter(!(Study_shorthand=="Tooley_DRE" & year==2023))
+
+tapply(GCC.dat$year, GCC.dat$Study_shorthand, unique)
 unique(GCC.dat$Study_shorthand)
 
+# VWC
 VWC.dat<-VWC%>%
   mutate(var=as.numeric(VWC))
 unique(VWC.dat$Study_shorthand)
 
+# SR
 SR.dat<-SR%>%
   mutate(var=as.numeric(efflux))
 unique(SR.dat$Study_shorthand)
 
-
+# List together
 con.dat<-list(VWC.dat,GCC.dat,SR.dat)
 con.labels<-list("20 cm VWC (%)","GCC","Efflux")
 ```
 
-```{r loop continuous data manipulations}
+```{r loop continuous data manipulations - 20perc diff only}
 # Make a for loop to clean and average data
 ### set empty list for output of changed data
 con.raw.adj<-list()
@@ -184,7 +192,7 @@ for (i in seq_along(con.dat)){
   # save check
   con.merge.check[[i]]<-full.merge.check
   
-  # CALCULATE WITHIN 20% -- where can we add what this 20% means in the units of that measurement? add a summary table? 
+  # CALCULATE WITHIN 20% 
   full.merge.wide<-full.merge.wide%>%
     mutate(perc_diff=((DEL_av-CON_av)/CON_av)*100)%>%
     mutate(del_response=case_when(
@@ -228,7 +236,9 @@ write.csv(x = daily.avs, file = file.path("deluge", "data", "R_exports", "VWC_GC
 # Upload to Drive
 googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_long-dailyavs.csv"), overwrite = T,
                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+```
 
+```{r other metric checks - run prev chunk first}
 # Check observations
 head(daily.avs,5)
 
@@ -260,7 +270,7 @@ obs.kable<-obs.summary%>%
     "GCC" = paste0(GCC_n," (",GCC,")"))%>%
   select(Study_shorthand,`20cm VWC`,Efflux,GCC)
 
-view(obs.kable)
+# view(obs.kable)
 
 write.csv(obs.kable, file = file.path("deluge", "data", "R_exports", "n_dates_and_observations.csv"), row.names = FALSE)
 
@@ -295,7 +305,8 @@ all.comps<-response.periods%>%
   left_join(rel.20.within.yrs,by=c("label","year"))%>%
   left_join(rel.20.within.all,by=c("label","year","Study_shorthand"))%>%
   mutate(
-      # for across all studies and years
+      
+    # for across all studies and years
       range_diff_across=
            ((DEL_av-CON_av)/range_across_studyyrs)*100,
          del_response_across=case_when(
@@ -331,7 +342,7 @@ all.comps %>%
     )
 
 # broken out by how EACH STUDY changes
-flag.summary.wide <- all.comps %>%
+study.comps <- all.comps %>%
   group_by(Study_shorthand, label) %>%
   summarise(
     original = sum(del_response != "none", na.rm = TRUE), # 20% difference (straight % diff from control)
@@ -341,7 +352,7 @@ flag.summary.wide <- all.comps %>%
   ) %>%
   arrange(label, Study_shorthand)
 
-view(flag.summary.wide)
+# view(study.comps)
 
 ##### **CONVERT RELATIVE PERCENTAGES TO UNITS** #####
 # Across all studies and years -- one row, one column per label
@@ -366,6 +377,11 @@ units.within.studyyrs.wide <- rel.20.within.all %>%
   arrange(Study_shorthand, year)
 
 view(units.within.studyyrs.wide)
+
+write.csv(units.within.studyyrs.wide, file = file.path("deluge", "data", "R_exports", "RelPerc_to_Units_withinstudyyrs.csv"), row.names = FALSE)
+
+googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "RelPerc_to_Units_withinstudyyrs.csv"), overwrite = T,
+                        path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 ```
 
 ```{r graphing deluges}
