@@ -204,12 +204,16 @@ mutate(Study_shorthand="Tooley_DRE",
        FORB=Forb*10,
        C4.ANNUALS=GrassC4An*10, # only C4 annuals -- which ones?? And no C3??
        ANPP=ANPP*10)%>%
-select(Study_shorthand,plot,Block,trt,trt2,year,C3,C4,FORB,C4.ANNUALS,ANPP)
+select(Study_shorthand,plot,Iteration,Block,trt,trt2,year,C3,C4,FORB,C4.ANNUALS,ANPP)
 
 Tooley_DRE_long<-Tooley_DRE%>%
-  select(Study_shorthand,plot,Block,trt2,year,C3,C4,FORB,C4.ANNUALS,ANPP)%>%
+  select(Study_shorthand,plot,Iteration,Block,trt2,year,C3,C4,FORB,C4.ANNUALS,ANPP)%>%
   rename(trt=trt2)%>%
-  pivot_longer(cols=c(C3,C4,FORB,C4.ANNUALS,ANPP),names_to="funct_group",values_to="ANPP")
+  pivot_longer(cols=c(C3,C4,FORB,C4.ANNUALS,ANPP),names_to="funct_group",values_to="ANPP")%>%
+  group_by(Study_shorthand,Block,plot,trt,year,funct_group)%>%
+  dplyr::summarise(
+    n.reps=n(),
+    ANPP=mean(ANPP))
 
 head(Tooley_DRE_long,5)
 
@@ -415,6 +419,13 @@ Hajek_24_clean<-Hajek_24_long%>%
 Tooley_DRE_clean<-Tooley_DRE_long%>%
   select(Study_shorthand, year, Block, plot, trt, funct_group, ANPP)%>%
   mutate(BNPP = NA, year = as.character(year))
+## double-check Greg's averages
+Tooley_DRE_extracheck<-Tooley_DRE_clean%>%
+  group_by(year,funct_group,trt)%>%
+  dplyr::summarise(
+    n.plots=n(),
+    ANPP.avs=mean(ANPP)
+  )
 
 Post2020_clean<-Post2020_merged%>%
   mutate(Block = "NA")%>%
@@ -448,7 +459,11 @@ write.csv(x = ANPP_BNPP_harmonized, row.names = F, na = '',
           file = file.path("deluge", "data", "R_exports","ANPP_harmonized.csv"))
 
 # Upload to Drive
-googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "ANPP_harmonized.csv"), overwrite = T, path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+drive_upload(
+  media = "ANPP_harmonized.csv",
+  path = file.path("deluge", "data","R_exports"),
+  name = "ANPP_harmonized.csv",
+  overwrite = T)
 
 ```
 
