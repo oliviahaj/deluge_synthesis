@@ -75,6 +75,57 @@ str(SR)
 #### set up deluge characteristics data to merge with
 del.info<-read.csv("deluge/data/deluge_characteristics_mergeable.csv")
 # view(del.info)
+
+#### TRYING TO FIX CHANGE DAYS SINCE DEL ####
+# # Get list of files with VWC in the filename ("_VWC" drops out the combined files so we're back to full list from everyone's raw data)
+# vwc_files <- list.files(path = file.path("deluge", "data"), 
+#                         pattern = "_VWC", 
+#                         full.names = TRUE)
+# 
+# 
+# # Read each file and assign to a dataframe named after the file
+# ## make list for file names
+# obj_names_list<-list()
+# ## run loop
+# for(f in vwc_files) {
+#   # Extract just the filename without extension as the object name
+#   obj_name <- tools::file_path_sans_ext(basename(f))
+#   
+#   # Read the CSV and assign to an object with that name
+#   assign(obj_name, read.csv(f))
+#   
+#   # Add to list
+#   obj_names_list<-c(obj_names_list,obj_name)
+# }
+# 
+# # Check how "plot" is formatted in each
+# str(CCE_VWC_Year2) # Plot
+# str(Condon_SLs_VWC) # Plot
+# str(Hajek2024_VWC) # Plot
+# str(Hoover2022_VWC_20cm) # Plot
+# str(Linabury_ChANGE_VWC) # plot + need trt too 
+# Linabury_ChANGE_VWC<-Linabury_ChANGE_VWC%>%
+#   mutate(Plot=paste0(plot,"_",treatment))
+# str(Post2020_VWC) # Plot
+# str(Post2021_VWC) # Plot
+# str(Tooley_DRE_VWC) # Plot
+# 
+# # Check unique Plot IDs in each dataframe
+# plot.ids <- data.frame()
+# 
+# for(name in obj_names_list) {
+#   if(name == "Hoover2022_CPER-DEX_VWC") next  # skip this one
+#   
+#   df <- get(name)
+#   temp <- data.frame(
+#     Study_shorthand = name,
+#     Plot = unique(df$Plot)
+#   )
+#   plot.ids <- rbind(plot_ids, temp)
+# }
+# 
+# view(plot.ids)
+
 ```
 
 ```{r fix rest of data for merge}
