@@ -40,37 +40,37 @@ dir.create(file.path("deluge","figures"))
 
 ### inspecting raw treatment labels
 ```{r read in all CCE files}
-## Read in drive folder (same folder as before)
-drive.files <- googledrive::drive_ls(googledrive::as_id("1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
-
-## Filter to only files starting with "CCE_"
-cce.files <- drive.files %>%
-  dplyr::filter(stringr::str_starts(name, "CCE_"))
-
-## Download each CCE file
-for (i in seq_len(nrow(cce.files))) {
-  file.name <- cce.files$name[i]
-  file.id   <- cce.files$id[i]
-  
-  googledrive::drive_download(file = file.id,
-                              overwrite = T,
-                              path = file.path("deluge", "data", file.name))
-  message("Downloaded: ", file.name)
-}
-
-# inspect CCE files
-## List all downloaded CCE files locally
-cce.local <- list.files(file.path("deluge", "data"), pattern = "^CCE_", full.names = TRUE)
-
-## Read each into a named list
-cce.list <- lapply(cce.local, read.csv)
-names(cce.list) <- basename(cce.local)
-
-## Inspect structure of each
-lapply(cce.list, str)
-
-## Check unique treatment names in each file — adjust "treatment" to your actual column name
-lapply(cce.list, function(df) unique(df$treatment))
+# ## Read in drive folder (same folder as before)
+# drive.files <- googledrive::drive_ls(googledrive::as_id("1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+# 
+# ## Filter to only files starting with "CCE_"
+# cce.files <- drive.files %>%
+#   dplyr::filter(stringr::str_starts(name, "CCE_"))
+# 
+# ## Download each CCE file
+# for (i in seq_len(nrow(cce.files))) {
+#   file.name <- cce.files$name[i]
+#   file.id   <- cce.files$id[i]
+#   
+#   googledrive::drive_download(file = file.id,
+#                               overwrite = T,
+#                               path = file.path("deluge", "data", file.name))
+#   message("Downloaded: ", file.name)
+# }
+# 
+# # inspect CCE files
+# ## List all downloaded CCE files locally
+# cce.local <- list.files(file.path("deluge", "data"), pattern = "^CCE_", full.names = TRUE)
+# 
+# ## Read each into a named list
+# cce.list <- lapply(cce.local, read.csv)
+# names(cce.list) <- basename(cce.local)
+# 
+# ## Inspect structure of each
+# lapply(cce.list, str)
+# 
+# ## Check unique treatment names in each file — adjust "treatment" to your actual column name
+# lapply(cce.list, function(df) unique(df$treatment))
 
 ```
 
