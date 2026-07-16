@@ -440,10 +440,25 @@ ppt.2 <- ppt.join %>%
     by = c("Study", "Treatment_raw")
   )                         
                          
-                         
+              
+# Fix Greg's Precipitation Data
+# Get rid of Greg's ppt in the last file and replace wiht the new data
+greg <- read.csv(file = file.path("deluge", "precip_data", "greg_ppt_wide.csv")) %>%
+  mutate(Study_shorthand = "Tooley_DRE", 
+         Our_trt = case_when(
+           Treatment_raw == "Leg.Drought_Trt.Deluge" ~ "DR_DEL", 
+           Treatment_raw == "Leg.Drought_Trt.LTA" ~ "DR", 
+           Treatment_raw == "Leg.Control_Trt.LTA" ~ "CON", 
+           TRUE ~ "CON_DEL"
+         ))
+
+ppt.3 <- ppt.2 %>%
+  filter(Study != "Tooley et al. DRE") %>%
+  rbind(greg)
+           
 # save and export
 
-write.csv(ppt.2, "precip_data_cleaned_trts.csv", row.names = FALSE)
+write.csv(ppt.3, "precip_data_cleaned_trts.csv", row.names = FALSE)
 
 drive_upload(
   media = "precip_data_cleaned_trts.csv",
