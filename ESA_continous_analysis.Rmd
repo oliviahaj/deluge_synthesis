@@ -32,3 +32,57 @@ library(googledrive)
 
 ```
 
+## Plan for Continuous data in the talk:
+1. Filter out Mary totally, filter out Greg drought legacies
+2. Use longest response period from published (probably Alison big deluge) and find maximums to check, and AUC to analyze more (potentially split also into immediate and full response periods)
+3. AUC ~ timing*size for everyone to look for those being important
+4. Probably make some bar plots of AUCs to compare magnitude (for pre-/response (or response split)/post-) -- maybe keep fall out of post if that doesn't make sense?
+5. Add relationship of GCC to ANPP -- ANPP increase w/ deluge ~ GCC's AUC (OR change to timing like relative 20%) (OR ANPP's difference explained by BOTH GCC magnitude over consistent periods AND GCC total increased length within each study)
+
+Probably greenness and soil moisture (only Resp. if it's very interesting)
+
+### Data setup
+```{r data}
+
+
+
+
+```
+
+### Assign response periods
+```{r response period assignment}
+
+
+
+```
+
+### Calc. AUC's for all
+```{r AUC's}
+
+
+
+```
+
+### check AUC's compared over pre-, response periods, and post-del
+```{r magnitude bar graphs}
+
+
+```
+
+### AUC ~ timing and size regressions 
+```{r magnitude regressions}
+
+
+```
+
+### ANPP explained by GCC magnitude/timing?
+```{r get ANPP data setup}
+
+
+```
+
+```{r ANPP and GCC relationships}
+
+
+```
+
