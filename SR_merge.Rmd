@@ -34,7 +34,7 @@ dir.create(file.path("deluge", 'data'), showWarnings = F)
 dir.create(file.path("deluge", 'data', 'R_exports'), showWarnings = F)
 ```
 
-# Download VWC files
+# Download resp files
 ```{r}
 # Identify wanted files
 files_drive <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1-z0EMfF8_LTWr3HZVajzcO3K9jKgYM9p")) %>% 
