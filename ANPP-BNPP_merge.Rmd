@@ -379,7 +379,7 @@ Hoover2022.fg<-Hoover2022_CPER_DEX.fg%>%
     TRUE ~ trt
   ))
 
-
+str(Hoover2022.fg)
 ```
 
 
@@ -419,6 +419,7 @@ Hajek_24_clean<-Hajek_24_long%>%
 Tooley_DRE_clean<-Tooley_DRE_long%>%
   select(Study_shorthand, year, Block, plot, trt, funct_group, ANPP)%>%
   mutate(BNPP = NA, year = as.character(year))
+
 ## double-check Greg's averages
 Tooley_DRE_extracheck<-Tooley_DRE_clean%>%
   group_by(year,funct_group,trt)%>%
@@ -441,7 +442,7 @@ Hoover2022_clean<-Hoover2022%>%
   select(Study_shorthand, year, Block, plot, trt, funct_group, ANPP, BNPP)
 
 Hoover2022fg_clean <- Hoover2022.fg %>%
-  select(Study_shorthand, year,plot, trt, funct_group, ANPP) %>%
+  select(Study_shorthand, year, plot, trt, funct_group, ANPP) %>%
   mutate(Block = "NA", BNPP = NA, year = as.character(year))
 
 # Stack them all
@@ -450,6 +451,12 @@ ANPP_BNPP_harmonized<-rbind(CHANGE_clean, CCE_clean, condon_SL_clean,
                       Post2020_clean, Post2021_clean, Hoover2022_clean, Hoover2022fg_clean)
 
 head(ANPP_BNPP_harmonized,5)
+
+# view(ANPP_BNPP_harmonized)
+
+# Check for hidden characters in Study_shorthand or funct_group
+unique(ANPP_BNPP_harmonized$Study_shorthand)
+unique(ANPP_BNPP_harmonized$funct_group) # be careful of Dave's functional groups Annual, Forb, Woody VS. ANNUAL FORB WOODY in other files
 ```
 
 ```{r export to drive}
