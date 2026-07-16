@@ -193,6 +193,7 @@ post2021 <- Post2021_VWC %>%
          block = NA)
 str(post2021)
 ```
+
 ## CCE - Siggers
 ```{r}
 str(CCE_VWC_Year2)
@@ -201,7 +202,7 @@ cce <- CCE_VWC_Year2 %>%
   rename(plot = "Plot", 
          trt = "Treatment", 
          date = "Date", 
-         VWC = "X20_cm_VWC_.", 
+         VWC = "X20_cm_VWC.", 
          block = "Block") %>%
   # add in the shorthand name
   mutate(Study_shorthand = "CCE", 

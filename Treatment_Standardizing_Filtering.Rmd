@@ -96,7 +96,7 @@ dir.create(file.path("deluge","figures"))
 
 ```
 
-```{r Copy in productivity}
+```{r Copy in harmonized files}
 ## list all productivity files in drive by name
 harm.files<-c("ANPP_harmonized.csv","GCC_harmonized.csv","PRS_Nutrients_harmonized.csv","SR_harmonized.csv","VWC_20cm_harmonized.csv")
 
@@ -382,13 +382,13 @@ str(PRS_recode) # 2064
 
 str(GCC) # 6684
 str(Tooley_DRE_recode) # 1747
-str(GCC_recode) # 6064
+str(GCC_recode) # 6104
 
 str(SR) # 4285
-str(SR_recode) # 3613
+str(SR_recode) # 3753
 
 str(VWC) # 7627
-str(VWC_recode) # 6003
+str(VWC_recode) # 6263
 # view(VWC_recode)
 
 # # export each
@@ -429,7 +429,7 @@ str(VWC_recode) # 6003
 #   name = "SR_filtered.csv",
 #   overwrite = T)
 # 
-# VWC
+# # VWC
 # write.csv(VWC_recode, "VWC_20cm_filtered.csv", row.names = FALSE)
 # 
 # drive_upload(
