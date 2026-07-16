@@ -244,4 +244,82 @@ ggplot(anpp.ppt, aes(Difference.from.LTA.MAP, mean_ANPP))+
   
 ```
 
+# Which studies have negative/postiive/no response
+
+```{r}
+str(paired.2)
+
+paired.2$pue <- paired.2$anpp_diff/paired.2$Size
+
+func.anpp.diff <- paired.2 %>%
+  # filter to not include fall
+  #filter(Study_shorthand %in% c("Hajek2024", "Tooley_DRE")) %>%
+  group_by(func) %>%
+  summarize(mean_diff = mean(anpp_diff), se_diff = (sd(anpp_diff))/(sqrt(n()))) %>%
+ 
+
+library(viridis)
+ggplot() +
+  geom_jitter(data = paired.2, aes(x = anpp_diff, y = func, color = Size, shape = func), 
+           alpha = 0.8, size = 2.4) +
+    geom_point(data = func.anpp.diff, aes(x = mean_diff, y = func, shape = func), size = 4) +
+  geom_errorbar(data = func.anpp.diff, aes(x = mean_diff, y = func,
+                                     xmin = mean_diff - se_diff, 
+                                     xmax = mean_diff + se_diff),
+                width = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  scale_color_viridis_c(option = "mako", direction = -1)+
+  theme_bw(base_size = 14) +
+  ylab("Functional Group") +
+  xlab("ANPP Difference (g/m2)")
+
+ggplot(paired.2, aes(Size, pue, color = Difference.from.LTA.MAP))+
+  geom_point() +
+  facet_wrap(~func)
+
+response.summary <- paired.2 %>%
+  mutate(response_type = case_when(
+    del_anpp - del_se > ctrl_anpp + ctrl_se ~ "POSITIVE", 
+    del_anpp + del_se < ctrl_anpp - ctrl_se ~ "NEGATIVE",
+    TRUE ~ "NONE"
+  )) %>%
+  group_by(func, response_type) %>%
+  summarize(n = n())
+
+```
+
+# quick look at bnpp
+```{r}
+bnpp <- anpp %>%
+  filter(!is.na(BNPP)) %>%
+  group_by(Study_shorthand, trt) %>%
+  summarize(mean_bnpp=mean(BNPP), se_bnpp = (sd(BNPP))/(sqrt(n()))) %>%
+  mutate(del = as.numeric(ifelse(trt %in% c("CON", "DR"), "0", "1")))%>%
+  ungroup()
+
+con.b <- bnpp %>%
+  filter(del == 0) %>%
+  select(-c(trt, del)) %>%
+  rename(ctrl_bnpp = "mean_bnpp", 
+         ctrl_se = "se_bnpp")
+
+trts.b <- bnpp %>%
+  filter(del == 1) %>%
+  rename(del_bnpp = "mean_bnpp", 
+         del_se = "se_bnpp") %>%
+  left_join(con.b) %>%
+  mutate(bnpp_diff = del_bnpp-ctrl_bnpp)
+
+ggplot(trts.b, aes(Study_shorthand, bnpp_diff))+
+  geom_point() +
+  theme_bw()
+
+```
+
+
+# MAKE AN OVERALL figure that has the response summary (increase in NPP) for ANPP, BNPP, FOrb, and grass
+# PUE
+
+
+
 
