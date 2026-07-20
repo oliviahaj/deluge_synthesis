@@ -154,6 +154,38 @@ con.dat<-list(VWC.dat,GCC.dat,SR.dat)
 con.labels<-list("20 cm VWC (%)","GCC","Efflux")
 ```
 
+```{r check Linabury}
+Lin.VWC<-VWC.dat%>%
+  filter(Study_shorthand=="Linabury_ChANGE")
+
+str(Lin.VWC)
+
+Lin.dailyavs<-Lin.VWC%>%
+  mutate(date=as.Date(date,format="%Y-%m-%d"),
+         VWC=as.numeric(VWC))%>%
+  group_by(year,date,trt)%>%
+  dplyr::summarise(
+    n.plots=n(),
+    trt.av=mean(VWC),
+    trt.sd=sd(VWC),
+    trt.SE=trt.sd/sqrt(n.plots))
+
+Lin.VWC.raw<-read.csv("deluge/data/Linabury_ChANGE_VWC.csv")
+str(Lin.VWC.raw)
+
+Lin.dailyby.dayssince<-Lin.VWC.raw%>%
+  group_by(year,days_since_deluge,treatment)%>%
+  dplyr::summarise(
+    n.plots=n(),
+    trt.av=mean(vwc,na.rm=TRUE),
+    trt.sd=sd(vwc,na.rm=TRUE),
+    trt.SE=trt.sd/sqrt(n.plots))
+
+view(Lin.dailyavs)
+view(Lin.dailyby.dayssince)
+
+```
+
 ```{r loop continuous data manipulations - 20perc diff only}
 # Make a for loop to clean and average data
 ### set empty list for output of changed data
