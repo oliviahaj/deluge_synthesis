@@ -35,37 +35,314 @@ library(googledrive)
 ## Plan for Continuous data in the talk:
 1. Filter out Mary totally, filter out Greg drought legacies
 2. Use longest response period from published (probably Alison big deluge) and find maximums to check, and AUC to analyze more (potentially split also into immediate and full response periods)
-3. AUC ~ timing*size for everyone to look for those being important
+3. AUC ~ timing*size for everyone to look for those being important [[update for 20 July after looking at this -- likly not enough replication in each to look at this formally w regression]]
 4. Probably make some bar plots of AUCs to compare magnitude (for pre-/response (or response split)/post-) -- maybe keep fall out of post if that doesn't make sense?
 5. Add relationship of GCC to ANPP -- ANPP increase w/ deluge ~ GCC's AUC (OR change to timing like relative 20%) (OR ANPP's difference explained by BOTH GCC magnitude over consistent periods AND GCC total increased length within each study)
 
 Probably greenness and soil moisture (only Resp. if it's very interesting)
 
 ### Data setup
-```{r data}
+```{r read data}
+# set local file directories if needed
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge","data"), showWarnings = F)
+dir.create(file.path("deluge","data","R_exports"))
+dir.create(file.path("deluge","figures"))
 
+# read in continuous files
+drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3?usp=drive_link"))
 
+cont.files<-c("GCC_filtered.csv","SR_filtered.csv","VWC_20cm_filtered.csv","deluge_characteristics_mergeable.csv")
 
+## read in each file
+for (i in cont.files){
+  
+file.name<-drive.files %>% 
+  dplyr::filter(name == i) 
 
+# if-else, to throw error if file name is incorrect or error would otherwise stop loop
+if(nrow(file.name) == 1){
+  googledrive::drive_download(file = file.name$id, 
+                              overwrite = T,
+                              path = file.path("deluge", 'data', i))
+  
+} else{
+  message("File error - check name or if duplicated: ", i)
+  }
+}
+```
+
+```{r check data}
+# check all continuous files
+## read in
+GCC<-read.csv("deluge/data/GCC_filtered.csv")
+str(GCC)
+
+VWC<-read.csv("deluge/data/VWC_20cm_filtered.csv")
+str(VWC)
+
+SR<-read.csv("deluge/data/SR_filtered.csv")
+str(SR)
+
+## check each
+# GCC
+tapply(GCC$year, GCC$Study_shorthand, unique)
+
+GCC.dat<-GCC%>%
+  mutate(var=as.numeric(GCC))%>%
+  filter(!Study_shorthand=="Linabury_ChANGE")%>% # drop Mary 
+  filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
+
+tapply(GCC.dat$year, GCC.dat$Study_shorthand, unique)
+unique(GCC.dat$Study_shorthand)
+
+# VWC
+tapply(VWC$year, VWC$Study_shorthand, unique)
+
+VWC.dat<-VWC%>%
+  mutate(var=as.numeric(VWC))%>%
+  filter(!Study_shorthand=="Linabury_ChANGE")%>% # drop Mary 
+  filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
+
+# double-check rows where as.numeric conversion failed
+VWC %>%
+  mutate(var = suppressWarnings(as.numeric(VWC))) %>%
+  filter(is.na(var) & !is.na(VWC))  # NA in result but NOT NA in original = coercion failure
+
+tapply(VWC$year, VWC$Study_shorthand, unique)
+
+# SR
+tapply(SR$year, SR$Study_shorthand, unique)
+
+SR.dat<-SR%>%
+  mutate(var=as.numeric(efflux))%>%
+  filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL")))
+
+# double-check rows where as.numeric conversion failed
+SR %>%
+  mutate(var = suppressWarnings(as.numeric(efflux))) %>%
+  filter(is.na(var) & !is.na(efflux))  # NA in result but NOT NA in original = coercion failure
+
+tapply(SR$year, SR$Study_shorthand, unique)
+```
+
+```{r list checked/fixed files}
+# List together
+con.dat<-list(VWC.dat,GCC.dat,SR.dat)
+con.labels<-list("20 cm VWC (%)","GCC","Efflux")
+
+## also read in deluge characteristics data to merge with
+del.info<-read.csv("deluge/data/deluge_characteristics_mergeable.csv")
+# view(del.info)
 ```
 
 ### Assign response periods
 ```{r response period assignment}
+#### Post -- 28 days response period in both studies -- using approximately when largest deluge VWC returned to ambient levels
 
+## separate controls vs. treated (deluges)
+controls.info<-del.info%>%
+  filter(is.na(del_start))%>%
+  select(c("Study_shorthand","year","control_trt"="trt")) # only keep these columns for controls -- other columns are not consistent for controls
 
+treated.info<-del.info%>%
+  filter(!is.na(del_start))%>% # keep all columns for deluge trts
+  mutate(del_start=as.Date(del_start,format="%m/%d/%y"),
+         del_end=as.Date(del_end,format="%m/%d/%y"),
+         resp_period_end=del_start+28)
 
+## pair each deluge trt with what it's control is called (DR_DEL to DR or CON_DEL to CON or SEP_DEL and OCT_DEL to CON)
+trt.pairs<-treated.info%>%
+  left_join(controls.info,by=c("Study_shorthand","year"), relationship="many-to-many")%>%
+  filter(
+    # choose treatments that match to pair up -- like CON --> CON_DEL and DR --> DR_DEL
+    startsWith(trt,control_trt)| # either pair together
+      
+    # OR choose to duplicate control row where there is only one control per study
+    Study_shorthand %in% (
+      controls.info%>%
+        group_by(Study_shorthand,year)%>%
+        filter(n()==1)%>% # where there is only ONE control for each Study/year
+        pull(Study_shorthand)
+    )
+  )
+
+### also remove extra DRE trts
+trt.pairs <- trt.pairs %>%
+  filter(!(Study_shorthand == "Tooley_DRE" & trt %in% c("DR_DEL", "DR"))) %>%
+  filter(!(Study_shorthand == "Tooley_DRE" & control_trt == "DR"))
+
+## stack treated and control rows together with their date windows (and duplicate controls where needed for multiple deluge trts)
+trt.lookup.long<-trt.pairs%>%
+  select(Study_shorthand,year,trt,del_size,timing,control_trt,del_start,del_end,resp_period_end)%>%
+  pivot_longer(cols=c(trt,control_trt),names_to=NULL,values_to="trt")
+
+str(trt.lookup.long)
+
+## assign each continuous var's data to mark response periods by study and trt
+cont.list<-list(GCC=GCC.dat,SR=SR.dat,VWC=VWC.dat)
+
+## join response dates into continuous data measurements
+for (i in seq_along(cont.list)) {
+  cont.list[[i]]<-cont.list[[i]]%>%
+    mutate(date=as.Date(date,format="%Y-%m-%d"))%>%
+    left_join(trt.lookup.long,by=c("Study_shorthand","year","trt"),relationship="many-to-many")%>%
+    mutate(
+      resp_period=case_when(
+        date <= del_start ~ "pre_del",
+        date > del_start & date <= resp_period_end ~ "del_resp",
+        date > resp_period_end ~ "post_del"))%>%
+    select(-del_start,resp_period_end,resp_period)
+}
+
+GCC.dat.new<-cont.list$GCC
+SR.dat.new<-cont.list$SR
+VWC.dat.new<-cont.list$VWC
+
+# "new" dats should be slightly more n b/c some controls have duplicated to match all trts
+nrow(GCC.dat)
+nrow(GCC.dat.new)
+
+nrow(SR.dat)
+nrow(SR.dat.new)
+
+nrow(VWC.dat)
+nrow(VWC.dat.new)
 ```
 
 ### Calc. AUC's for all
 ```{r AUC's}
+## load package for trapazoidal AUC calculation 
+library(pracma)
 
+## list files to go through loop
+auc.dat.list<-list(GCC=GCC.dat.new,SR=SR.dat.new,VWC=VWC.dat.new)
 
+## run loop to calculate AUC during response period only -- comparing two methods of averaging
+for (i in seq_along(auc.dat.list)){
+  
+  df<-auc.dat.list[[i]]%>%
+    filter(resp_period=="del_resp") # calculate AUC's for response period only
+  
+  # AUC at plot level first, then average to trt level -- maybe NOT a good approach b/c then studies w/ more plots per trt have higher n contributing to AUC calculation
+  plot.first<-df%>%
+    group_by(Study_shorthand,year,trt,del_size,timing,plot)%>%
+    arrange(date)%>%
+    summarise(AUC=trapz(as.numeric(date),var), .groups="drop")%>%
+    group_by(Study_shorthand,year,trt,del_size,timing)%>%
+    summarise(AUC_mean=mean(AUC,na.rm=TRUE),.groups="drop")
+  
+  # average to trt levels first, then calculate AUC per date -- probably better approach to keep even across studies 
+  date.avs.first<-df%>%
+    group_by(Study_shorthand,year,trt,del_size,timing,date)%>%
+    summarise(var_mean=mean(var,na.rm=TRUE),.groups="drop")%>%
+    group_by(Study_shorthand,year,trt,del_size,timing)%>%
+    arrange(date)%>%
+    summarise(AUC_mean=trapz(as.numeric(date),var_mean),.groups="drop")
+  
+  # compare/save both AUC calculations
+  auc.dat.list[[i]]<-left_join(
+    plot.first%>%rename(AUC_plotfirst=AUC_mean),
+    date.avs.first%>%rename(AUC_datefirst=AUC_mean),
+    by=c("Study_shorthand","year","trt","del_size","timing"))
+  
+}
+
+### check out the differences b/t averaging methods
+GCC.auc<-auc.dat.list$GCC
+SR.auc<-auc.dat.list$SR
+VWC.auc<-auc.dat.list$VWC
+
+## continue comparing control and trt AUC's using only the datefirst averaging method -- where we average to trt levels first (more appropriate for across studies)
+for (i in seq_along(auc.dat.list)){
+  
+  # get AUC's for each control in the response period
+  con.auc<-auc.dat.list[[i]]%>%
+    filter(trt %in% trt.pairs$control_trt)%>%
+    select(Study_shorthand,year,trt,timing,del_size,AUC_datefirst)%>%
+    rename(control_trt=trt,AUC_con=AUC_datefirst)
+  
+  print(con.auc %>% filter(Study_shorthand == "Tooley_DRE"))
+  
+  # subtract trt AUC's from control AUC's within each study/year/trt (when multiple deluge trts)
+  auc.dat.list[[i]]<-auc.dat.list[[i]]%>%
+    filter(!trt %in% trt.pairs$control_trt)%>% # removes con rows so we can join side-by-side instead from above
+    select(Study_shorthand,year,trt,del_size,timing,AUC_datefirst)%>%
+    rename(AUC_del=AUC_datefirst)%>%
+    left_join(trt.pairs%>%select(Study_shorthand,year,trt,control_trt),
+              by=c("Study_shorthand","year","trt"))%>%
+    left_join(con.auc,by=c("Study_shorthand","year","control_trt","timing","del_size"),
+              relationship="many-to-many")%>%
+    mutate(AUC_diff=AUC_del-AUC_con)
+}
+
+GCC.auc <- auc.dat.list$GCC
+SR.auc  <- auc.dat.list$SR
+VWC.auc <- auc.dat.list$VWC
 
 ```
 
 ### check AUC's compared over pre-, response periods, and post-del
 ```{r magnitude bar graphs}
+# ggplot(GCC.auc, aes(x = del_size, y = AUC_diff, color = Study_shorthand, shape = timing)) +
+#   geom_point(size = 3) +
+#   geom_smooth(method = "lm", se = FALSE, aes(group = 1), color = "black", linetype = "dashed") +
+#   labs(x = "Deluge Size (mm)", y = "AUC Difference (Treated - Control)",
+#        title = "GCC Response Period AUC vs. Deluge Size",
+#        color = "Study", shape = "Timing") +
+#   theme_classic()
+# 
+# ggplot(GCC.auc, aes(x = timing, y = AUC_diff, color = Study_shorthand)) +
+#   geom_point(size = 3, position = position_jitter(width = 0.1)) +
+#   labs(x = "Timing", y = "AUC Difference (Treated - Control)",
+#        title = "GCC Response Period AUC vs. Deluge Timing",
+#        color = "Study") +
+#   theme_classic()
 
+### summarize all together
+# get all unique treatment combinations across all three variables
+all.trts <- bind_rows(
+  GCC.auc %>% select(Study_shorthand, year, trt, del_size, timing),
+  VWC.auc %>% select(Study_shorthand, year, trt, del_size, timing),
+  SR.auc  %>% select(Study_shorthand, year, trt, del_size, timing)
+) %>% distinct()
+
+# join all three variables to the full list
+auc.summary <- all.trts %>%
+  left_join(GCC.auc %>% select(Study_shorthand, year, trt, del_size, timing, AUC_diff) %>% rename(AUC_diff_GCC = AUC_diff),
+            by = c("Study_shorthand", "year", "trt", "del_size", "timing")) %>%
+  left_join(VWC.auc %>% select(Study_shorthand, year, trt, del_size, timing, AUC_diff) %>% rename(AUC_diff_VWC = AUC_diff),
+            by = c("Study_shorthand", "year", "trt", "del_size", "timing")) %>%
+  left_join(SR.auc  %>% select(Study_shorthand, year, trt, del_size, timing, AUC_diff) %>% rename(AUC_diff_SR  = AUC_diff),
+            by = c("Study_shorthand", "year", "trt", "del_size", "timing"))
+
+# look at highest differences by each var
+auc.summary%>%
+  arrange(desc(AUC_diff_VWC))
+
+auc.summary%>%
+  arrange(desc(AUC_diff_GCC))
+
+auc.summary%>%
+  arrange(desc(AUC_diff_SR))
+
+auc.summary.bydays<-auc.summary %>%
+  mutate(across(starts_with("AUC_diff"), ~ . / 28)) %>%
+  kable(digits = 3,
+        col.names = c("Study", "Year", "Treatment", "Deluge Size (mm)", "Timing",
+                      "GCC mean diff", "VWC mean diff (%)", "SR mean diff"),
+        caption = "Mean daily response above control during 28-day response period")
+
+# look at by study ranks all together
+auc.summary %>%
+  mutate(across(starts_with("AUC_diff"), ~ . / 28)) %>%
+  mutate(
+    rank_GCC = rank(-AUC_diff_GCC),
+    rank_VWC = rank(-AUC_diff_VWC),
+    rank_SR  = rank(-AUC_diff_SR)
+  ) %>%
+  select(Study_shorthand, year, trt, del_size, timing, 
+         rank_GCC,rank_VWC,rank_SR)
 
 ```
 
@@ -85,4 +362,7 @@ Probably greenness and soil moisture (only Resp. if it's very interesting)
 
 
 ```
+
+### VPD maybe? vs. VWC?? vs. GCC?? vs. ANPP??
+How much does VWC increase depends on VPD
 
