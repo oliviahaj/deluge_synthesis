@@ -104,9 +104,34 @@ hajek2024 <- Hajek2024_Soil_Respiration %>%
          year = year(date), 
          doy = yday(date), 
          study_trt = paste(Study_shorthand, trt, sep="_"), 
-         block = NA)
+         block = NA)%>%
+  mutate(efflux=as.numeric(efflux))
   
 str(hajek2024)
+
+# double-check rows where as.numeric conversion failed
+Hajek2024_Soil_Respiration %>%
+  mutate(var = suppressWarnings(as.numeric(Efflux))) %>%
+  filter(is.na(var) & !is.na(Efflux))  # all OK n/a --> NA
+
+# check na's
+hajek2024%>%
+  filter(is.na(efflux)) # several dates, check avs
+
+# check avs
+hajek.avs<-hajek2024%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=sum(!is.na(efflux)),
+    SR.av=mean(efflux,na.rm=TRUE),
+    SR.sd=sd(efflux,na.rm=TRUE)) 
+
+# view(hajek.avs) # drop 9/17/21 -- only one plot per trt, drop 3/23/22, only 2 per trt and looks like extra week b/t regular measures, keep 12/10/21 -- only 2 for Oct but 3 and 4 for other trts
+
+str(hajek2024) # 488
+hajek2024<-hajek2024%>%
+  filter(!date %in% c("2021-09-17","2022-03-23"))
+str(hajek2024) # 465 -- 23 measurements dropped
 ```
 
 ## Post 2020
@@ -130,6 +155,19 @@ post2020 <- Post2020_Soil_Respiration %>%
          block = NA) %>%
   select(-c(Time, Soil_Temp, VWC))
 str(post2020)
+
+# check na's
+post2020%>%
+  filter(is.na(efflux)) # none
+
+# check avs
+post20.avs<-post2020%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    SR.av=mean(efflux),
+    SR.sd=sd(efflux)) 
+# view(post20.avs) # all OK, leave alone
 ```
 
 
@@ -155,6 +193,19 @@ post2021 <- Post2021_Soil_Respiration %>%
   select(-c(Soil_temp, VWC, Precip))
 str(post2021)
 
+# check na's
+post2021%>%
+  filter(is.na(efflux)) # none
+
+# check avs
+post21.avs<-post2021%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    SR.av=mean(efflux),
+    SR.sd=sd(efflux)) 
+# view(post21.avs) # all OK, leave alone
+
 ```
 ## Hoover et al. 2022
 ```{r}
@@ -177,6 +228,19 @@ Hoover2022 <- Hoover2022_soil_Respiration %>%
   select(-c(Observer, Soil_Temp, Time, CO2.Target, Soil_Temp, Soil.Moisture....,Efflux..umol.CO2.m.2.s., Soil.Temp..dgC.))
 
 str(Hoover2022)
+
+# check na's
+Hoover2022%>%
+  filter(is.na(efflux)) # three NA's on 8/23/2019
+
+# check avs
+hoover.avs<-Hoover2022%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=sum(!is.na(efflux)),
+    SR.av=mean(efflux,na.rm=TRUE),
+    SR.sd=sd(efflux,na.rm=TRUE)) 
+# view(hoover.avs) # OK, NA plots from above just reduce n of day from 5-->4
 ```
 
 ## Condon
@@ -201,6 +265,19 @@ Condon <- Condon_SLs_Respiration %>%
 
 str(Condon)
 
+# check na's
+Condon%>%
+  filter(is.na(efflux)) # none
+
+# check avs
+con.avs<-Condon%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    SR.av=mean(efflux),
+    SR.sd=sd(efflux)) 
+# view(con.avs) # all OK, amb always 10 per day and other trts 5/day
+
 ```
 ## Tooley
 
@@ -224,8 +301,31 @@ Tooley_DRE <- Tooley_DRE_Respiration %>%
          doy = yday(date), 
          study_trt = paste(Study_shorthand, trt, sep="_"), 
          block = NA) %>%
-  select(-c(treat, legacy))
+  select(-c(treat, legacy)) %>%
+  # fix 0025 date formatting 
+  mutate(date=as.Date(date,format="%Y-%m-%d"),
+         date=if_else(as.numeric(format(date,"%Y"))<100,
+                      date+years(2000),
+                      date))
 str(Tooley_DRE)
+
+# check na's
+Tooley_DRE%>%
+  filter(is.na(efflux)) # lots of NA rows, check w/ avs
+
+# check avs
+dre.avs<-Tooley_DRE%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=sum(!is.na(efflux)),
+    SR.av=mean(efflux,na.rm=TRUE),
+    SR.sd=sd(efflux,na.rm=TRUE)) 
+# view(dre.avs) # drop 10/14/24 (n=0 or 1 per trt) -- 1/17/2025 and 2/8/2025 also have only n=1 per trt for at least 1 trt but ONLY Jan/Feb. measurements, so keep
+
+str(Tooley_DRE) # 877
+Tooley_DRE<-Tooley_DRE%>%
+  filter(!date=="2024-10-14")
+str(Tooley_DRE) # 853 -- ok
 ```
 
 ## CCE
@@ -252,12 +352,31 @@ CCE <- CCE_Soil_Respiration %>%
 
 str(CCE)
 
+# check na's
+CCE%>%
+  filter(is.na(efflux)) # lots of NA rows, check w/ avs
+
+# check avs
+cce.avs<-CCE%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=sum(!is.na(efflux)),
+    SR.av=mean(efflux,na.rm=TRUE),
+    SR.sd=sd(efflux,na.rm=TRUE)) 
+# view(cce.avs) # all days at least n=5/trt so OK, leave alone
+
 ```
 # Merge all of the dataframes
 
 ```{r}
 combo <- rbind(hajek2024, Hoover2022, post2020, post2021, CCE, Condon, Tooley_DRE)
 str(combo)
+
+#### quiz viz of all ####
+ggplot(combo, aes(doy, efflux))+
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~Study_shorthand, scales="free") # OK- nothing looks too unreasonable
 
 # Export locally
 write.csv(x = combo, row.names = F, na = '',
@@ -271,9 +390,6 @@ googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "SR_h
 
 # Quick viz
 ```{r}
-ggplot(combo, aes(doy, efflux))+
-  geom_point()+
-  theme_bw()+
-  facet_wrap(~Study_shorthand, scales="free")
+
 ```
 
