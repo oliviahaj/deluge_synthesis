@@ -107,6 +107,20 @@ hajek2024 <- Hajek2024_GCC %>%
          block = NA)
   
 str(hajek2024)
+
+# check na's
+hajek2024%>%
+  filter(is.na(GCC)) # none
+
+# check avs
+hajek.avs<-hajek2024%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    GCC.av=mean(GCC),
+    GCC.sd=sd(GCC))
+
+# view(hajek.avs) # all looks fine, leave alone
 ```
 ## Hoover et al. 2022
 
@@ -128,6 +142,20 @@ hoover2022 <- `Hoover2022_CPER-DEX_GCC` %>%
          block = NA)
   
 str(hoover2022)
+
+# check na's
+hoover2022%>%
+  filter(is.na(GCC)) # none
+
+# check avs
+hoover.avs<-hoover2022%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    GCC.av=mean(GCC),
+    GCC.sd=sd(GCC))
+
+# view(hoover.avs) # all looks fine, leave alone
 ```
 ## Post2020
 ```{r}
@@ -147,6 +175,20 @@ post2020 <- Post2020_GCC %>%
          study_trt = paste(Study_shorthand, trt, sep="_"), 
          block = NA)
 str(post2020)
+
+# check na's
+post2020%>%
+  filter(is.na(GCC)) # none
+
+# check avs
+post20.avs<-post2020%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    GCC.av=mean(GCC),
+    GCC.sd=sd(GCC))
+
+# view(post20.avs) # all looks fine, leave alone
 ```
 ## Post 2021
  
@@ -168,6 +210,21 @@ post2021 <- Post2021_GCC %>%
          block = NA) %>%
   select(-Precip)
 str(post2021)
+
+# check na's
+post2021%>%
+  filter(is.na(GCC)) # none
+
+# check avs
+post21.avs<-post2021%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    GCC.av=mean(GCC),
+    GCC.sd=sd(GCC))
+
+# view(post21.avs) # all looks fine, leave alone
+
 ```
 ## CCE
 
@@ -189,6 +246,25 @@ cce <- CCE_GCC_updated %>%
   select(-c(X.1, X, file_name, month, day, plot_type, nphoto, EGI_mean, ERI_mean, ExGmR, pixel_length, pixel_width, DoY))
 
 str(cce)
+
+# check na's
+cce%>%
+  filter(is.na(GCC)) # none
+
+# check avs
+cce.avs<-cce%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    GCC.av=mean(GCC),
+    GCC.sd=sd(GCC))
+
+# view(cce.avs) # drop 8/20/2025 -- only one plot measured that day (missing other trt totally)
+
+str(cce) # 1091
+cce<-cce%>%
+  filter(!date=="2025-08-20")
+str(cce) # 1090
 ```
 
 ## Condon
@@ -212,6 +288,20 @@ condon_sl <- Condon_SLs_GCC %>%
   select(-c(Drop))
 
 str(condon_sl)
+
+# check na's
+condon_sl%>%
+  filter(is.na(GCC)) # lots of rows w/ plots missing
+
+# check avs
+con.avs<-condon_sl%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=sum(!is.na(GCC)),
+    GCC.av=mean(GCC,na.rm=TRUE),
+    GCC.sd=sd(GCC,na.rm=TRUE))
+
+# view(con.avs) # OK -- all have at least 7-8 plots per trt per day still, leave alone
 ```
 
 ## Linabury
@@ -232,6 +322,21 @@ linabury <- Linabury_ChANGE_GCC %>%
   select(-c(X, site, deluge.date.1, deluge.date.2, dom, month, experiment, nitrogen, deluge.date.1.doy, deluge.date.2.doy))
 
 str(linabury)
+
+# check na's
+linabury%>%
+  filter(is.na(GCC)) # none
+
+# check avs
+lin.avs<-linabury%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    GCC.av=mean(GCC),
+    GCC.sd=sd(GCC))
+
+# view(lin.avs) # several days w/ only n=1 or 2 per trt -- this file doesn't have days since deluge so can't check it....leave data alone for now -- Mary checking
+
 ```
 
 ## combine
@@ -240,20 +345,19 @@ str(linabury)
 combo <- rbind(hajek2024, hoover2022, post2020, post2021, cce, condon_sl, linabury)
 str(combo)
 
-# Export locally
-write.csv(x = combo, row.names = F, na = '',
-          file = file.path("deluge", "data", "R_exports", "GCC_harmomnized.csv"))
-
-# Upload to Drive
-googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "GCC_harmomnized.csv"), overwrite = T,
-                          path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
-```
-
-# Quick viz
-```{r}
+#### quick vis together ####
 ggplot(combo, aes(doy, GCC))+
   geom_point()+
   theme_bw()+
-  facet_wrap(~Study_shorthand, scales="free")
+  facet_wrap(~Study_shorthand, scales="free") # no crazy obvious points -- export! 
+
+# Export locally
+write.csv(x = combo, row.names = F, na = '',
+          file = file.path("deluge", "data", "R_exports", "GCC_harmonized.csv"))
+
+# Upload to Drive
+googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "GCC_harmonized.csv"), overwrite = T,
+                          path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 ```
+
 
