@@ -102,9 +102,32 @@ hajek2024 <- Hajek2024_VWC %>%
          year = year(date), 
          doy = yday(date), 
          study_trt = paste(Study_shorthand, trt, sep="_"), 
-         block = NA)
+         block = NA,
+         VWC=as.numeric(VWC)
+         )
+
+# double-check rows where as.numeric conversion failed
+Hajek2024_VWC %>%
+  mutate(var = suppressWarnings(as.numeric(VWC))) %>%
+  filter(is.na(var) & !is.na(VWC))  # NA in result but NOT NA in original = coercion failure - all look OK for Hajek n/a --> NA
   
 str(hajek2024)
+
+# check averages
+hajek.avs<-hajek2024%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=sum(!is.na(VWC)),
+    VWC.av=mean(VWC,na.rm=TRUE),
+    VWC.sd=sd(VWC,na.rm=TRUE),
+    VWC.SE=VWC.sd/sqrt(n.plots.per.day))
+
+# view(hajek.avs) # 9/17/21 -- drop b/c during deluge addition
+
+hajek2024<-hajek2024%>%
+  filter(!date=="2021-09-17")
+
+str(hajek2024) # dropped 9/17/21
 ```
 
 ## Hoover et al., 2022
@@ -129,6 +152,7 @@ hoover.long <- Hoover2022_VWC_20cm %>%
   filter(!is.na(VWC))
 
 str(hoover.long)
+
 hoover2022 <- hoover.long %>%
   rename(trt = "TRT",
          plot = "Plot",
@@ -152,6 +176,22 @@ hoover2022 <- hoover.long %>%
          study_trt = paste(Study_shorthand, trt, sep="_"))
 
 str(hoover2022)
+
+# check for NA's
+hoover2022%>%
+  filter(is.na(VWC)) # none, dropped above
+  
+# check averages
+hoover.avs<-hoover2022%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    VWC.av=mean(VWC),
+    VWC.sd=sd(VWC),
+    VWC.SE=VWC.sd/sqrt(n.plots.per.day))
+
+# view(hoover.avs) # only a couple of days with half plots (n=5/trt instead of 10) -- okay and leaving
+  
 ```
 ## Post2020
 ```{r}
@@ -171,6 +211,21 @@ post2020 <- Post2020_VWC %>%
          study_trt = paste(Study_shorthand, trt, sep="_"), 
          block = NA)
 str(post2020)
+
+# check for NA's
+post2020%>%
+  filter(is.na(VWC)) # none
+
+# check averages
+post20.avs<-post2020%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    VWC.av=mean(VWC),
+    VWC.sd=sd(VWC),
+    VWC.SE=VWC.sd/sqrt(n.plots.per.day))
+
+# view(post20.avs) # all dates have 6-8 plots, okay and leaving
 ```
 
 ## Post 2021
@@ -192,6 +247,21 @@ post2021 <- Post2021_VWC %>%
          study_trt = paste(Study_shorthand, trt, sep="_"), 
          block = NA)
 str(post2021)
+
+# check NA's
+post2021%>%
+  filter(is.na(VWC)) # none
+
+# check averages
+post21.avs<-post2021%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    VWC.av=mean(VWC),
+    VWC.sd=sd(VWC),
+    VWC.SE=VWC.sd/sqrt(n.plots.per.day))
+
+# view(post21.avs) # always 4, OK and leaving
 ```
 
 ## CCE - Siggers
@@ -214,6 +284,21 @@ cce <- CCE_VWC_Year2 %>%
          study_trt = paste(Study_shorthand, trt, sep="_")) %>%
   select(-Notes)
 str(cce)
+
+# check na's
+cce%>%
+  filter(is.na(VWC)) # 71 NA rows -- but all at least n=5/trt from avs below
+
+# check averages
+cce.avs<-cce%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=sum(!is.na(VWC)),
+    VWC.av=mean(VWC,na.rm=TRUE),
+    VWC.sd=sd(VWC,na.rm=TRUE),
+    VWC.SE=VWC.sd/sqrt(n.plots.per.day))
+
+# view(cce.avs) - all dates look OK - at least n=5/trt -- leaving alone
 ```
 
 ## Condon
@@ -237,6 +322,22 @@ condon_sl <- Condon_SLs_VWC %>%
   select(-c(X, Comb.TRT))
 
 str(condon_sl)
+
+# check na's
+condon_sl%>%
+  filter(is.na(VWC)) # 12 lines of NA's -- looks like one day w/ lots of plots missed but on av's there are still 8-9 plots/trt
+
+# check avs
+condon.avs<-condon_sl%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=sum(!is.na(VWC)),
+    VWC.av=mean(VWC,na.rm=TRUE),
+    VWC.sd=sd(VWC,na.rm=TRUE),
+    VWC.SE=VWC.sd/sqrt(n.plots.per.day))
+
+# view(condon.avs) # all looks OK -- leaving alone
+
 ```
 
 
@@ -257,6 +358,66 @@ linabury <- Linabury_ChANGE_VWC %>%
   select(-c(X, site, deluge.date.1, deluge.date.2, dom, month, days_since_deluge, experiment, nitrogen))
 
 str(linabury)
+
+# check na's 
+linabury%>%
+  filter(is.na(VWC)) # none
+
+# check avs
+lin.avs<-linabury%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    VWC.av=mean(VWC),
+    VWC.sd=sd(VWC),
+    VWC.SE=VWC.sd/sqrt(n.plots.per.day))
+
+# view(lin.avs) # 7/27, 8/10, and 8/28 only 1 plot per trt measured
+
+# check again using days_since_deluge instead of calendar dates
+linabury.2<-Linabury_ChANGE_VWC%>%
+  rename( 
+         trt = "treatment", 
+         VWC = "vwc") %>%
+  # add in the shorthand name
+  mutate(Study_shorthand = "Linabury_ChANGE", 
+         # add in the variable analyzed
+         Variable = "VWC", 
+         date = as.Date(date, format = "%m/%d/%Y"), 
+         study_trt = paste(Study_shorthand, trt, sep="_")) %>%
+  select(-c(X, site, deluge.date.1, deluge.date.2, dom, month, experiment, nitrogen))
+
+linabury.avs2<-linabury.2%>%
+  group_by(days_since_deluge,trt)%>%
+  dplyr::summarise(
+    n.plots.per.days=n(),
+    VWC.av=mean(VWC),
+    VWC.sd=sd(VWC))
+# view(linabury.avs2)
+
+# try filtering out the DATES with one plot per and then also check as days_since again
+lin.avs<-linabury%>%
+  filter(!date %in% c("2021-07-27","2021-08-10","2021-08-28"))%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    VWC.av=mean(VWC),
+    VWC.sd=sd(VWC),
+    VWC.SE=VWC.sd/sqrt(n.plots.per.day))
+# view(lin.avs)
+
+lin.avs<-linabury.2%>%
+  filter(!date %in% c("2021-07-27","2021-08-10","2021-08-28"))%>%
+  group_by(days_since_deluge,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=n(),
+    VWC.av=mean(VWC),
+    VWC.sd=sd(VWC),
+    VWC.SE=VWC.sd/sqrt(n.plots.per.day))
+# view(lin.avs) 
+
+## either way w/ filtering, there are either multiple CALENDAR dates with now only n=2/trt or 3, OR multiple DAYS_SINCE_DELUGE dates that have only one plot -- emailed 7/17/2026 to check w/ Mary on data
+
 ```
 
 ## TOOLEy
@@ -281,6 +442,25 @@ tooley <- Tooley_DRE_VWC %>%
   select(-c(SWC1, SWC2, SWC3, SWC4, SWC5, SWC6, Notes, ...11, treat, legacy))
 str(tooley)
 
+# check na's
+tooley%>%
+  filter(is.na(VWC)) # lots of NA rows
+
+# check avs
+tooley.avs<-tooley%>%
+  group_by(date,trt)%>%
+  dplyr::summarise(
+    n.plots.per.day=sum(!is.na(VWC)),
+    VWC.av=mean(VWC,na.rm=TRUE),
+    VWC.sd=sd(VWC,na.rm=TRUE),
+    VWC.SE=VWC.sd/sqrt(n.plots.per.day))
+
+# view(tooley.avs) # only 2 per trt on 5/15/24, 1/17/25, 6/25/25, drop these dates
+
+str(tooley) # 2097
+tooley<-tooley%>%
+  filter(!date %in% c("2024-05-15","2025-01-17","2025-06-25"))
+str(tooley) # 2025 -- dropped dates OK 
 ```
 
 
@@ -291,8 +471,37 @@ str(tooley)
 combo <- rbind(hajek2024, hoover2022, post2020, post2021, cce, condon_sl, linabury, tooley)
 str(combo)
 
+#### vis together ####
+ggplot(combo, aes(doy, VWC))+
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~Study_shorthand, scales="free") # check CCE high outlier and Post 2020 low outlier
+
+combo%>%
+  filter(Study_shorthand=="CCE")%>%
+  filter(VWC>100) # 2025-09-01 plot 6 129 VWC -- drop this plot
+
+combo%>%
+  filter(Study_shorthand=="Post2020")%>%
+  filter(VWC<5) # 2017-07-03 plot 31 VWC is 4
+
+combo%>%
+  filter(Study_shorthand=="Post2020")%>%
+  filter(date=="2017-07-03") # 4 does not look reasonable compared to other plots of same trt on this date
+
+#### drop obv mistake measures ####
+str(combo) # 7665
+
+export<-combo%>%
+  # drop Post 2017 point
+  filter(!(Study_shorthand=="Post2020" & date=="2017-07-03" & plot=="31"))%>%
+  # drop CCE point
+  filter(!(Study_shorthand=="CCE" & date=="2025-09-01" & plot=="6"))
+
+str(export) # 7663, dropped two rows successfully
+
 # Export locally
-write.csv(x = combo, row.names = F, na = '',
+write.csv(x = export, row.names = F, na = '',
           file = file.path("deluge", "data", "R_exports", "VWC_20cm_harmomnized.csv"))
 
 # Upload to Drive
@@ -306,9 +515,6 @@ googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_
 # quick viz
 
 ```{r}
-ggplot(combo, aes(doy, VWC))+
-  geom_point()+
-  theme_bw()+
-  facet_wrap(~Study_shorthand, scales="free")
+
 ```
 
