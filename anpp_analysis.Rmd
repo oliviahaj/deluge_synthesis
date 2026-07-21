@@ -135,7 +135,7 @@ trts <- anpp.4  %>%
   filter(del==1) %>%
   mutate(pairing = str_sub(trt, 1, 2), 
          pairing = ifelse(pairing == "DR", "DR", "CO")) %>%
-  select(pairing, Study_shorthand, year, func, mean_ANPP, se_ANPP) %>%
+  select(pairing, trt, Study_shorthand, year, func, mean_ANPP, se_ANPP) %>%
   rename(del_anpp = "mean_ANPP", 
          del_se = "se_ANPP")
 
@@ -255,7 +255,7 @@ func.anpp.diff <- paired.2 %>%
   # filter to not include fall
   #filter(Study_shorthand %in% c("Hajek2024", "Tooley_DRE")) %>%
   group_by(func) %>%
-  summarize(mean_diff = mean(anpp_diff), se_diff = (sd(anpp_diff))/(sqrt(n()))) %>%
+  summarize(mean_diff = mean(anpp_diff), se_diff = (sd(anpp_diff))/(sqrt(n()))) 
  
 
 library(viridis)
@@ -286,6 +286,16 @@ response.summary <- paired.2 %>%
   group_by(func, response_type) %>%
   summarize(n = n())
 
+
+response.summary2 <- paired.2 %>%
+  mutate(response_type = case_when(
+    del_anpp  > ctrl_anpp  ~ "POSITIVE", 
+    del_anpp  < ctrl_anpp  ~ "NEGATIVE",
+    TRUE ~ "NONE"
+  )) %>%
+  group_by(func, response_type) %>%
+  summarize(n = n())
+
 ```
 
 # quick look at bnpp
@@ -293,7 +303,8 @@ response.summary <- paired.2 %>%
 bnpp <- anpp %>%
   filter(!is.na(BNPP)) %>%
   group_by(Study_shorthand, trt) %>%
-  summarize(mean_bnpp=mean(BNPP), se_bnpp = (sd(BNPP))/(sqrt(n()))) %>%
+  summarize(mean_bnpp=mean(BNPP), se_bnpp = (sd(BNPP))/(sqrt(n())),
+            mean_anpp=mean(ANPP), se_anpp = (sd(ANPP))/(sqrt(n()))) %>%
   mutate(del = as.numeric(ifelse(trt %in% c("CON", "DR"), "0", "1")))%>%
   ungroup()
 
@@ -301,25 +312,113 @@ con.b <- bnpp %>%
   filter(del == 0) %>%
   select(-c(trt, del)) %>%
   rename(ctrl_bnpp = "mean_bnpp", 
-         ctrl_se = "se_bnpp")
+         ctrl_bnpp_se = "se_bnpp",
+         ctrl_anpp2 = "mean_anpp", 
+         ctrl_anpp_se2 = "se_anpp")
 
 trts.b <- bnpp %>%
   filter(del == 1) %>%
   rename(del_bnpp = "mean_bnpp", 
-         del_se = "se_bnpp") %>%
+         del_bnpp_se = "se_bnpp",
+         del_anpp2 = "mean_anpp", 
+         del_anpp_se2 = "se_anpp") %>%
   left_join(con.b) %>%
-  mutate(bnpp_diff = del_bnpp-ctrl_bnpp)
+  mutate(bnpp_diff = del_bnpp-ctrl_bnpp,
+         anpp_diff = del_anpp2 - ctrl_anpp2, 
+         func = "ANPP")
 
-ggplot(trts.b, aes(Study_shorthand, bnpp_diff))+
-  geom_point() +
+ggplot(trts.b, aes(anpp_diff, bnpp_diff, color = Study_shorthand))+
+  geom_point(size=3) +
   theme_bw()
 
 ```
 
 
 # MAKE AN OVERALL figure that has the response summary (increase in NPP) for ANPP, BNPP, FOrb, and grass
-# PUE
 
+```{r}
+bnpp_prep <- trts.b %>%
+  left_join(paired) %>%
+  dplyr::select(c(Study_shorthand, trt, del_bnpp, del_bnpp_se, ctrl_bnpp, ctrl_bnpp_se, 
+           pairing, year, Difference.from.LTA.MAP)) %>%
+  rename(del_anpp = del_bnpp, 
+         del_se = del_bnpp_se, 
+         ctrl_anpp = ctrl_bnpp, 
+         ctrl_se = ctrl_bnpp_se) %>%
+  mutate(func = "BNPP")
+
+glimpse(trt.data)
+trt.data.2 <- trt.data %>%
+  select(c(Study, Size, Year, trt))%>%
+  rename(Study_shorthand = Study, 
+         year = Year)%>%
+  mutate(year = as.character(year))
+  
+
+combined <- paired %>%
+  rbind(bnpp_prep) %>%
+  mutate(npp_diff = del_anpp-ctrl_anpp) %>%
+  left_join(trt.data.2)
+
+combo_summary <- combined %>%
+  group_by(func)%>%
+  summarize(mean_npp = mean(npp_diff), se_npp = (sd(npp_diff))/(sqrt(n())))
+
+combo_summary$func <- factor(combo_summary$func, levels = c("BNPP", "FORB", "GRASS", "ANPP"))
+
+ggplot() +
+  geom_jitter(data = combined, aes(x = npp_diff, y = func, fill = Size, shape = func), 
+           alpha = 0.65, size = 2.3) +
+    geom_point(data = combo_summary, aes(x = mean_npp, y = func, shape = func), size = 4.5, fill = "black") +
+  geom_errorbar(data = combo_summary, aes(x = mean_npp, y = func,
+                                     xmin = mean_npp - se_npp, 
+                                     xmax = mean_npp + se_npp),
+                width = 0.2) +
+  scale_shape_manual(values = c(23, 24, 22, 21))+
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  scale_fill_viridis_c(option = "mako", direction = -1)+
+  theme_bw(base_size = 14) +
+  ylab("Functional Group") +
+  xlab("ANPP Difference (g/m2)")
+
+
+```
+
+# Comparison of slopes
+## Compare with controls of treatments and deluge treatments - maybe just the 60mm ones?
+## Bring in the overall CPER data
+
+```{r}
+anpp.ppt.2 <- anpp.ppt %>%
+  mutate(MAP = Difference.from.LTA.MAP + 333) %>%
+  filter(func == "ANPP") #%>%
+  #filter(Study_shorthand != "Hajek2024" & Study_shorthand != "Tooley_DRE") %>%
+  #filter(Size > 30)
+
+glimpse(anpp.ppt.2)
+
+ggplot(anpp.ppt.2, aes(MAP, mean_ANPP, color = as.factor(del))) +
+  geom_point()+
+  geom_smooth(method = "lm")+
+  theme_bw()
+
+ggplot(anpp.ppt.2, aes(MAP, mean_ANPP, color = Study_shorthand)) +
+  geom_point()+
+  theme_bw()
+
+
+# read in CPER data
+cper <- read.csv("/Users/olhajek/Desktop/nceas/lterwg-resilience/data/harmonized_data/anpp_wyr_merged.csv") %>%
+  filter(site=="CPER")
+
+ggplot()+
+  geom_point(data = anpp.ppt.2, aes(MAP, mean_ANPP, color = as.factor(del))) +
+  geom_smooth(data = anpp.ppt.2, aes(MAP, mean_ANPP, color = as.factor(del)), method = "lm")+
+  geom_point(data=cper, aes(wyr_ppt, anpp_g_m2))+
+  geom_smooth(data=cper, aes(wyr_ppt, anpp_g_m2), method = "lm")+
+  theme_bw()
+
+```
 
 
 
