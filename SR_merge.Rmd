@@ -380,10 +380,10 @@ ggplot(combo, aes(doy, efflux))+
 
 # Export locally
 write.csv(x = combo, row.names = F, na = '',
-          file = file.path("deluge", "data", "R_exports", "SR_harmomnized.csv"))
+          file = file.path("deluge", "data", "R_exports", "SR_harmonized.csv"))
 
 # Upload to Drive
-googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "SR_harmomnized.csv"), overwrite = T,
+googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "SR_harmonized.csv"), overwrite = T,
                           path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 ```
 
