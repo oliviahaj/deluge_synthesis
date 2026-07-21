@@ -471,7 +471,7 @@ str(tooley) # 2025 -- dropped dates OK
 combo <- rbind(hajek2024, hoover2022, post2020, post2021, cce, condon_sl, linabury, tooley)
 str(combo)
 
-#### vis together ####
+#### quick vis together ####
 ggplot(combo, aes(doy, VWC))+
   geom_point()+
   theme_bw()+
@@ -508,13 +508,6 @@ write.csv(x = export, row.names = F, na = '',
 googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_20cm_harmomnized.csv"), overwrite = T,
                           path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 
-
-```
-
-
-# quick viz
-
-```{r}
 
 ```
 
