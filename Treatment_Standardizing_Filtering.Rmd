@@ -367,26 +367,26 @@ tapply(VWC_recode$year,VWC_recode$Study_shorthand,unique)
 ```{r export filtered datafiles}
 # sanity check each
 # check unique years by study in raw files
-tapply(ANPP_recode$year,ANPP_recode$Study_shorthand,unique)
+# tapply(ANPP_recode$year,ANPP_recode$Study_shorthand,unique)
 tapply(GCC_recode$year,GCC_recode$Study_shorthand,unique)
-tapply(PRS_recode$year,PRS_recode$Study_shorthand,unique)
+# tapply(PRS_recode$year,PRS_recode$Study_shorthand,unique)
 tapply(SR_recode$year,SR_recode$Study_shorthand,unique)
 tapply(VWC_recode$year,VWC_recode$Study_shorthand,unique)
 
 
-str(ANPP) # 2207
-str(ANPP_recode) # 1537
-
-str(PRS) # 2122
-str(PRS_recode) # 2064
-
-str(GCC) # 6684
+# str(ANPP) # 2207
+# str(ANPP_recode) # 1537
+# 
+# str(PRS) # 2122
+# str(PRS_recode) # 2064
+# 
+str(GCC) # 8431
 str(Tooley_DRE_recode) # 1747
-str(GCC_recode) # 6104
-
+str(GCC_recode) # 7851
+# 
 str(SR) # 4285
 str(SR_recode) # 3753
-
+# 
 str(VWC) # 7627
 str(VWC_recode) # 6263
 # view(VWC_recode)
@@ -411,7 +411,7 @@ str(VWC_recode) # 6263
 #   name = "PRS_filtered.csv",
 #   overwrite = T)
 # 
-# # GCC
+# GCC
 # write.csv(GCC_recode, "GCC_filtered.csv", row.names = FALSE)
 # 
 # drive_upload(
