@@ -380,15 +380,15 @@ tapply(VWC_recode$year,VWC_recode$Study_shorthand,unique)
 # str(PRS) # 2122
 # str(PRS_recode) # 2064
 # 
-str(GCC) # 8431
+str(GCC) # 6683
 str(Tooley_DRE_recode) # 1747
-str(GCC_recode) # 7851
+str(GCC_recode) # 6103
 # 
-str(SR) # 4285
-str(SR_recode) # 3753
+str(SR) # 4238
+str(SR_recode) # 3714
 # 
-str(VWC) # 7627
-str(VWC_recode) # 6263
+str(VWC) # 7663
+str(VWC_recode) # 6323
 # view(VWC_recode)
 
 # # export each
@@ -411,7 +411,7 @@ str(VWC_recode) # 6263
 #   name = "PRS_filtered.csv",
 #   overwrite = T)
 # 
-# GCC
+# # GCC
 # write.csv(GCC_recode, "GCC_filtered.csv", row.names = FALSE)
 # 
 # drive_upload(
@@ -429,7 +429,7 @@ str(VWC_recode) # 6263
 #   name = "SR_filtered.csv",
 #   overwrite = T)
 # 
-# # VWC
+# VWC
 # write.csv(VWC_recode, "VWC_20cm_filtered.csv", row.names = FALSE)
 # 
 # drive_upload(
