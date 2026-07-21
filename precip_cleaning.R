@@ -408,7 +408,7 @@ ppt.join <- ppt.long3 %>%
          ann_ppt = m1 + m2 + m3 + m4 + m5 + m6 + m7 + m8 + m9 + m10 + m11 + m12,
          gs_ppt_prev = m5_prev + m6_prev + m7_prev + m8_prev,
          ann_ppt_prev = m1_prev + m2_prev + m3_prev + m4_prev + 
-           m5_prev + m6_prev + m7_prev + m8_prev + m9_prev + m10_prev + m11_prev + m12_prev,)
+           m5_prev + m6_prev + m7_prev + m8_prev + m9_prev + m10_prev + m11_prev + m12_prev)
 
 # TREATMENT NAME UPDaTE
 names <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1fpoG0wLLqjFLkucR2ZlNMon31DIW1GH-")) %>%
@@ -450,7 +450,12 @@ greg <- read.csv(file = file.path("deluge", "precip_data", "greg_ppt_wide.csv"))
            Treatment_raw == "Leg.Drought_Trt.LTA" ~ "DR", 
            Treatment_raw == "Leg.Control_Trt.LTA" ~ "CON", 
            TRUE ~ "CON_DEL"
-         ))
+         )) %>%
+  mutate(gs_ppt = m5 + m6 + m7 + m8,
+         ann_ppt = m1 + m2 + m3 + m4 + m5 + m6 + m7 + m8 + m9 + m10 + m11 + m12,
+         gs_ppt_prev = m5_prev + m6_prev + m7_prev + m8_prev,
+         ann_ppt_prev = m1_prev + m2_prev + m3_prev + m4_prev + 
+           m5_prev + m6_prev + m7_prev + m8_prev + m9_prev + m10_prev + m11_prev + m12_prev)
 
 ppt.3 <- ppt.2 %>%
   filter(Study != "Tooley et al. DRE") %>%
