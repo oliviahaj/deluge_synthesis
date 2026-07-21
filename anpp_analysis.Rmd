@@ -275,7 +275,16 @@ ggplot() +
 
 ggplot(paired.2, aes(Size, pue, color = Difference.from.LTA.MAP))+
   geom_point() +
+  geom_smooth(method="lm")+
+  theme_bw()+
   facet_wrap(~func)
+
+ggplot(paired.2, aes(pue, Difference.from.LTA.MAP, color = Size))+
+  geom_point() +
+  geom_smooth(method="lm")+
+  theme_bw()+
+  facet_wrap(~func)
+
 
 response.summary <- paired.2 %>%
   mutate(response_type = case_when(
@@ -358,7 +367,8 @@ trt.data.2 <- trt.data %>%
 combined <- paired %>%
   rbind(bnpp_prep) %>%
   mutate(npp_diff = del_anpp-ctrl_anpp) %>%
-  left_join(trt.data.2)
+  left_join(trt.data.2)%>%
+  mutate(pue = npp_diff/Size, wyr_ppt = Size+ Difference.from.LTA.MAP)
 
 combo_summary <- combined %>%
   group_by(func)%>%
@@ -381,6 +391,12 @@ ggplot() +
   ylab("Functional Group") +
   xlab("ANPP Difference (g/m2)")
 
+ggplot(data = combined, aes(del_ppt, pue)) +
+  geom_point(aes(color = Study_shorthand ))+
+  theme_bw()+
+  geom_smooth(method="lm")+
+  facet_wrap(~func)
+
 
 ```
 
@@ -391,16 +407,17 @@ ggplot() +
 ```{r}
 anpp.ppt.2 <- anpp.ppt %>%
   mutate(MAP = Difference.from.LTA.MAP + 333) %>%
-  filter(func == "ANPP") #%>%
-  #filter(Study_shorthand != "Hajek2024" & Study_shorthand != "Tooley_DRE") %>%
-  #filter(Size > 30)
+  filter(func == "ANPP") %>%
+  # filter(!(Study_shorthand == "Tooley_DRE" & trt %in% c("DR", "DR_DEL"))) #%>%
+  filter(Size== 60)
 
 glimpse(anpp.ppt.2)
 
 ggplot(anpp.ppt.2, aes(MAP, mean_ANPP, color = as.factor(del))) +
   geom_point()+
   geom_smooth(method = "lm")+
-  theme_bw()
+  theme_bw()+
+  facet_wrap(~func)
 
 ggplot(anpp.ppt.2, aes(MAP, mean_ANPP, color = Study_shorthand)) +
   geom_point()+
@@ -416,7 +433,48 @@ ggplot()+
   geom_smooth(data = anpp.ppt.2, aes(MAP, mean_ANPP, color = as.factor(del)), method = "lm")+
   geom_point(data=cper, aes(wyr_ppt, anpp_g_m2))+
   geom_smooth(data=cper, aes(wyr_ppt, anpp_g_m2), method = "lm")+
-  theme_bw()
+  theme_bw() 
+
+```
+
+
+# Create a df for anpp
+
+```{r}
+glimpse(anpp.4)
+# create an all treatments with anpp.4
+trt.data.3 <- trt.data %>%
+  select(c(Study, Size, Year, trt, Difference.from.LTA.MAP))%>%
+  rename(Study_shorthand = Study, 
+         year = Year)%>%
+  mutate(year = as.character(year))
+
+anpp.5 <- anpp.4 %>%
+  left_join(trt.data.3) %>%
+  mutate(wyr_ppt = Difference.from.LTA.MAP + 333)
+
+# save the combined and the anpp
+
+write.csv(x = anpp.5, row.names = F, na = '',
+          file = file.path("deluge", "data", "R_exports","ANPP_treatments_aggregated.csv"))
+
+# Upload to Drive
+drive_upload(
+  media = file.path("deluge", "data", "R_exports", "ANPP_treatments_aggregated.csv"),
+  path = file.path("deluge", "data","R_exports"),
+  name = "ANPP_treatments_aggregated.csv",
+  overwrite = T)
+
+write.csv(x = combined, row.names = F, na = '',
+          file = file.path("deluge", "data", "R_exports","ANPP_paired_aggregated.csv"))
+
+# Upload to Drive
+drive_upload(
+  media = file.path("deluge", "data", "R_exports", "ANPP_paired_aggregated.csv"),
+  path = file.path("deluge", "data","R_exports"),
+  name = "ANPP_paired_aggregated.csv",
+  overwrite = T)
+
 
 ```
 
