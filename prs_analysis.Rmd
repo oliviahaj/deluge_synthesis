@@ -1,0 +1,123 @@
+---
+title: "PRS Analysis"
+author: "OLH"
+date: "2026-07"
+output: 
+  bookdown::html_document2:
+    code_folding: hide
+    toc: TRUE
+    toc_depth: 4
+    toc_float: TRUE
+    collapsed: TRUE
+    theme: spacelab
+    fig_caption: TRUE
+    number_sections: FALSE
+---
+# Setup
+<style>h1 {font-size: 24pt; } h2 {font-size: 20pt; } h3 {font-size: 18pt; } h4 {font-size: 16pt; } h5 {font-size: 14pt; } h6 {font-size: 12pt; } </style> 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, dpi = 600, progress = FALSE, cache = FALSE, fig.width=5,  fig.height=3.5, fig.align="center")
+
+options(repos = c(CRAN = "http://cran.rstudio.com"))
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, googledrive, supportR, lubridate)
+
+`%!in%` = Negate(`%in%`)
+
+```
+
+# Create Folders on Desktop
+```{r}
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge", 'data'), showWarnings = F)
+dir.create(file.path("deluge", 'precip_data'), showWarnings = F)
+dir.create(file.path("deluge", 'data', 'R_exports'), showWarnings = F)
+```
+
+# Download PRS data
+```{r}
+##### PRS
+prs <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3")) %>%
+  dplyr::filter(name == "PRS_filtered.csv")
+
+# Did that work?
+prs
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = prs$id, overwrite = T, type = "csv",
+                            path = file.path("deluge","data","R_exports", prs$name))
+
+# Read in the PRS file
+prs <- read.csv(file = file.path("deluge","data","R_exports", "PRS_filtered.csv"))
+
+```
+
+# Filter to just nitrogen
+- also need to look at what the different timing periods look like
+- before and after deluge?
+
+```{r}
+nd <- prs %>%
+  filter(Nutrient %in% c("NO3.N", "NH4.N"))
+
+glimpse(nd)
+
+library(dplyr)
+
+# Step 1: average by block within treatment (only for rows with a real block)
+block_means <- nd %>%
+  filter(!is.na(Block)) %>%
+  group_by(Study_shorthand, Burial, trt, year, Nutrient, Block) %>%
+  summarize(rate = mean(rate, na.rm = TRUE), .groups = "drop")
+
+# Step 2: rows with no block info stay as individual observations
+no_block <- nd %>%
+  filter(is.na(Block)) %>%
+  select(Study_shorthand, Burial, trt, year, Nutrient, Block, rate)
+
+# Step 3: combine and summarize by treatment
+summary <- bind_rows(block_means, no_block) %>%
+  group_by(Study_shorthand, Burial, trt, year, Nutrient) %>%
+  summarize(
+    mean_rate = mean(rate, na.rm = TRUE),
+    se_rate = sd(rate, na.rm = TRUE) / sqrt(n()),
+    n = n()
+  ) %>%
+  ungroup()%>%
+  mutate(del = as.numeric(ifelse(trt %in% c("CON", "DR"), "0", "1")))
+
+glimpse(summary)
+
+
+con <- summary %>%
+  filter(del == 0) %>%
+  mutate(pairing = str_sub(trt, 1, 2)) %>%
+  select(pairing, Study_shorthand, year, Burial, Nutrient, mean_rate, se_rate) %>%
+  rename(ctrl_rate = "mean_rate", 
+         ctrl_se = "se_rate")
+
+trts <- summary %>%
+  filter(del==1) %>%
+  mutate(pairing = str_sub(trt, 1, 2), 
+         pairing = ifelse(pairing == "DR", "DR", "CO")) %>%
+  select(pairing, trt, Study_shorthand, year, Burial, Nutrient, mean_rate, se_rate) %>%
+  rename(del_rate = "mean_rate", 
+         del_se = "se_rate")
+
+paired <- left_join(con, trts) %>%
+  mutate(diff = del_rate-ctrl_rate, 
+         start = as.Date(substr(Burial,1,7), format = "%m/%d/%y"),
+         end = as.Date(str_sub(Burial, -7, -1), format = "%m/%d/%y"), 
+         month = month(start), start=if_else(is.na(start), 
+                          as.Date(paste0(year, "-07-01")), 
+                          start)) %>%
+  filter(Nutrient == "NO3.N")
+
+ggplot(paired, aes(start, diff, color = as.factor(month)))+
+  geom_point() +
+  ylab("Deluge - Control")+
+  facet_wrap(~Study_shorthand, scales = "free")+
+  theme_bw()
+```
+
