@@ -114,5 +114,22 @@ drive_upload(
 
 ```
 
+```{r}
+auc_wide <- auc %>%
+  pivot_wider(
+    names_from = Variable,
+    values_from = c(AUC_del, AUC_con, diff_AUC)
+  )
+
+
+ggplot(auc_wide, aes(diff_AUC_VWC, diff_AUC_GCC))+
+         geom_point()+
+  theme_bw()
+
+ggplot(auc_wide, aes(diff_AUC_GCC, diff_AUC_SR))+
+         geom_point()+
+  theme_bw()
+
+```
 
 
