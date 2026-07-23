@@ -335,7 +335,7 @@ library(pracma)
 #### Approximate for AUC boudaries ####
 ### get daily averages
 daily.avs<-all.continuous%>%
-  group_by(Variable,Study_shorthand,year,trt,date,del_size,timing,del_start,del_end,resp_period_end,resp_period)%>%
+  group_by(Variable,Study_shorthand,year,trt,con_vs_trt,date,del_size,timing,del_start,del_end,resp_period_end,resp_period)%>%
   dplyr::summarise(
     n.plots.per.date=sum(!is.na(var)),
     trt.av=mean(var,na.rm=TRUE),
@@ -357,7 +357,7 @@ missing.bounds<-daily.avs%>%
            # observations ended before deluge response period ended
            last_date<resp_period_end) %>%
   filter(missing_boundary=="TRUE")
-view(missing.bounds)
+# view(missing.bounds)
   
 #### interpolate missing AUC boundaries ####
 #### for calculating response period AUC's
@@ -509,7 +509,7 @@ auc.diff <- auc.trts %>%
     AUC_diff_day = AUC_diff / 28
   )
 
-view(auc.diff)
+# view(auc.diff)
 
 ## check 
 ggplot(auc.diff, aes(x = Study_shorthand, y = AUC_diff_day, color = factor(del_size), shape = timing)) +
@@ -525,10 +525,19 @@ ggplot(auc.diff, aes(x = del_size, y = AUC_diff_day, color = Study_shorthand, sh
   facet_wrap(~Variable, scales = "free_y") +
   theme_bw()
 
-ggplot(auc.diff, aes(x = del_size, y = AUC_diff_day, color = Study_shorthand)) +
-  geom_point(size = 3, aes(shape = timing)) +
+r2.labels <- auc.diff %>%
+  group_by(Variable) %>%
+  summarise(
+    r2 = summary(lm(AUC_diff_day ~ del_size))$r.squared,
+    p  = summary(lm(AUC_diff_day ~ del_size))$coefficients[2,4],
+    label = paste0("R² = ", round(r2, 2), ", p = ", round(p, 3))
+  )
+
+ggplot(auc.diff, aes(x = del_size, y = AUC_diff_day)) +
+  geom_point(aes(color = Study_shorthand, shape = timing), size = 3) +
   geom_smooth(method = "lm", se = TRUE, aes(group = 1), color = "black", linetype = "dashed") +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_text(data = r2.labels, aes(label = label), x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5) +
   facet_wrap(~Variable, scales = "free_y") +
   theme_bw()
 ```
@@ -536,10 +545,287 @@ ggplot(auc.diff, aes(x = del_size, y = AUC_diff_day, color = Study_shorthand)) +
 
 
 ```{r rel 20% - resp lengths}
+#### grouping study locations ####
+# get max/min for each variable -- range (denominator of DEL-CON/range)
+location.range<-all.continuous%>%
+  mutate(location=case_when(
+    Study_shorthand%in%c("Post2020","Post2021","Condon_SL","Hajek2024","Hoover2022","Tooley_DRE") ~ "IDE",
+    Study_shorthand=="CCE" ~ "CCE",
+    Study_shorthand=="Linabury_ChANGE" ~ "EDGE"))%>%
+  # redo averages (without duplicating controls like daily.avs does)
+  group_by(Variable,location,year,date,trt)%>%
+  dplyr::summarise(
+    n.plots=n(),
+    trt.av=mean(var,na.rm=TRUE))%>%
+  # use non-duplicated control av's to get max and min
+  group_by(Variable,location,year)%>%
+  dplyr::summarise(
+    min.val=min(trt.av, na.rm=TRUE),
+    max.val=max(trt.av, na.rm=TRUE),
+    var.range=max.val-min.val)
+
+# update avs too w/ locations -- IDE = Post, Condon, Hajek, Hoover, and Tooley, CCE = Alex only, EDGE = Mary only (these are duplicated avs with extra controls when needed)
+daily.avs<-daily.avs%>%
+  mutate(location=case_when(
+    Study_shorthand %in% c("Post2020","Post2021","Condon_SL","Hajek2024","Hoover2022","Tooley_DRE") ~ "IDE",
+    Study_shorthand %in% c("CCE") ~ "CCE",
+    Study_shorthand %in% c("Linabury_ChANGE") ~ "EDGE"))
 
 
-## 20% stuff again
+# get deluge and controls side-by-side -- use daily.avs b/c already duplicated controls if needed for multiple del trts
+### get correct con for each trt into del (only) data
+del.avs<-daily.avs%>%
+  filter(con_vs_trt=="trt")%>%
+  left_join(trt.pairs%>%
+              select(Study_shorthand,year,trt,control_trt,del_start,resp_period_end),
+            by=c("Study_shorthand","year","trt","del_start","resp_period_end"))
+del.avs
 
+### split out control plots from daily avs too
+con.avs<-daily.avs%>%
+  ungroup()%>%
+  filter(con_vs_trt=="control_trt")%>%
+  select(Variable,Study_shorthand,year,trt,date,trt.av) %>%
+  rename(con.av=trt.av,control_trt=trt)%>%
+  distinct()
+con.avs
+
+### join them back together side-by-side correctly using the correct controls for each del trt
+wide.daily.avs<-del.avs%>%
+  ungroup()%>%
+  # combine the controls with the del's data (side-by-side)
+  left_join(con.avs,
+            by=c("Variable","Study_shorthand","year","control_trt","date"))%>%
+  # combine in the correct range for the study's location
+  left_join(location.range%>%
+              select(Variable,location,year,var.range),
+            by=c("Variable","location","year"))%>%
+  # calculate the relative difference -- like %difference but divided by range instead of CON again
+  mutate(rel.diff=(trt.av-con.av)/var.range)%>%
+  mutate(over.20.diff=case_when(
+    abs(rel.diff*100) < 20 ~ NA,
+    abs(rel.diff*100) > 20 ~ TRUE))
+
+# view(wide.daily.avs)
+
+## save the dates that are >20% over
+over.20.dates<-wide.daily.avs%>%
+  select(Variable,Study_shorthand,year,trt,date,over.20.diff)%>%
+  filter(over.20.diff==TRUE)
+
+#### plot check relative 20%'s ####
+## add flagged dates back into daily.avs to check graphing
+dat<-daily.avs%>%
+  # subset(Variable=="VWC")%>%
+  # subset(Variable=="GCC")%>%
+  subset(Variable=="SR")%>%
+  group_by(Study_shorthand,year)%>%
+  mutate(Study_trt=paste0(Study_shorthand,"_",trt),
+         trt_type=case_when(
+           trt %in% c("CON","DR") ~ "CON",
+           TRUE ~ "DEL"))
+nrow(dat)
+dat<-dat%>%
+  left_join(over.20.dates,by=c("Variable","Study_shorthand","year","trt","date"))
+nrow(dat)
+
+### specify response period shading
+resp_rects<-dat%>%
+  filter(!is.na(del_end),!is.na(resp_period_end))%>%
+  distinct(Study_shorthand,year,del_start,resp_period_end)
+  
+### make the plot
+filled.plot<-ggplot(dat,aes(x=date,y=trt.av,group=trt,linetype=trt_type,color=Study_trt)) +
+  geom_rect(data = resp_rects,aes(xmin = del_start,xmax = resp_period_end,ymin = -Inf,ymax = Inf),
+            inherit.aes = FALSE,
+            fill = "grey80",
+            alpha = 0.3)+
+  geom_line()+
+  geom_point()+
+  geom_errorbar(aes(ymin=trt.av-trt.SE, ymax=trt.av+trt.SE), width=0.2)+
+  geom_text(data = dat %>% filter(over.20.diff == TRUE),
+            aes(label = "+"), size = 5, vjust = -0.5, color = "black") +
+  scale_x_date(date_labels="%b %d") +
+  labs(
+    x="Date",
+    y="var",
+    linetype="Treatment")+
+  theme_bw()+
+  theme(legend.position="right")+
+  force_panelsizes(rows = unit(2.25, "in"),
+               cols = unit(4.25, "in"))+
+  facet_wrap(~Study_shorthand + year,scales="free")
+
+filled.plot
+```
+
+```{r consecutive 20+ dates}
+#### assign response directions ####
+response.dat<-wide.daily.avs%>%
+  filter(con_vs_trt=="trt")%>%
+  mutate(response=case_when(
+    rel.diff > 0.20 ~ "positive",
+    rel.diff < -0.20 ~ "negative",
+    TRUE ~ "none"))%>%
+  arrange(Variable,Study_shorthand,year,trt,date)
+
+# view(response.dat)
+
+## check 
+gr.dat<-response.dat%>%
+  # filter(Variable=="GCC")
+  filter(Variable=="VWC")
+  # filter(Variable=="SR")
+
+ggplot(dat=gr.dat,aes(date,rel.diff,color=response))+
+  geom_point()+
+  geom_hline(yintercept=c(-0.2,0.2), linetype="dashed")+
+  facet_wrap(~Study_shorthand+year,scales="free_x")+
+  theme_bw()
+
+## check # of positive, neg, none (total, not just during response periods)
+table(gr.dat$response,useNA="always")
+
+#### assign where response direction changes ####
+response.dat<-response.dat%>%
+  group_by(Variable,Study_shorthand,year,trt)%>%
+  # when response changes b/t positive, negative, and none, give new run ID
+  mutate(response_change=
+           response != lag(response,
+                           default=first(response)),
+         response_event=cumsum(response_change))%>%
+  ungroup()
+
+#### get # of measurements in row w/ same response ####
+response.dat.postdel<-response.dat%>%
+  filter(date >= del_start)
+
+## find where there is no response
+none.periods<-response.dat.postdel%>%
+  filter(response=="none")%>%
+  group_by(Variable,Study_shorthand,year,trt,response_event)%>%
+  dplyr::summarise(
+    none_start=min(date),
+    none_end=max(date),
+    n_none=n(),
+    .groups="drop")
+
+## where no response periods last >= 2 measurement dates
+none.end<-none.periods%>%
+  filter(n_none>=2)%>%
+  group_by(Variable,Study_shorthand,year,trt)%>%
+  dplyr::summarise(
+    none_end=min(none_start),
+    .groups="drop")
+
+## where response flips directions
+flip.ends<-response.dat.postdel%>%
+  group_by(Variable,Study_shorthand,year,trt)%>%
+  arrange(date)%>%
+  mutate(previous_response=lag(response))%>%
+  filter(response %in% c("positive","negative"),
+         previous_response %in% c("positive","negative"),
+         response != previous_response)%>%
+  dplyr::summarise(
+    flip_end=min(date),
+    .groups="drop")
+
+#### combine stopping rules ####
+response.ends<-full_join(
+  none.end,flip.ends,
+  by=c("Variable","Study_shorthand","year","trt"))%>%
+  mutate(response_end=pmin(none_end,flip_end,na.rm=TRUE))%>%
+  select(Variable,Study_shorthand,year,trt,response_end)
+
+#### join w/ data ####
+response.dat <- response.dat %>%
+  left_join(
+    response.ends,
+    by=c(
+      "Variable",
+      "Study_shorthand",
+      "year",
+      "trt"
+    )
+  )
+
+response.dat <- response.dat %>%
+  mutate(
+    in_response_period =
+      date >= del_start &
+      date <= response_end &
+      response!="none"
+  )
+
+#### plot checks
+## choose variable/study to inspect
+check.plot.dat <- response.dat%>%
+  # filter(Variable=="VWC")
+  # filter(Variable=="SR")
+  filter(Variable=="GCC")
+
+
+ggplot(check.plot.dat,
+       aes(x=date,
+           y=rel.diff,
+           color=response)) +
+
+  geom_hline(yintercept=c(-0.2,0.2),
+             linetype="dashed") +
+
+  geom_line(aes(group=trt)) +
+
+  geom_point(aes(shape=in_response_period),
+             size=2) +
+
+  geom_vline(
+    data=response.ends,
+    aes(xintercept=response_end),
+    linetype="dashed",
+    color="black"
+  ) +
+
+  facet_wrap(~Study_shorthand + year,
+             scales="free_x") +
+
+  theme_bw()
+
+#### summary table ####
+#### summarize response lengths ####
+
+response.length.summary <- response.dat %>%
+  filter(in_response_period == TRUE) %>%
+  group_by(Variable, Study_shorthand, year, trt) %>%
+  summarise(
+    response_length = as.numeric(max(date)-min(date))+1,
+    .groups = "drop"
+  ) %>%
+  group_by(Variable) %>%
+  summarise(
+    min_response_length = min(response_length),
+    mean_response_length = mean(response_length),
+    max_response_length = max(response_length),
+    .groups = "drop"
+  )
+
+kable(response.length.summary,digits=2,col.names=c("Var","Min days","Av length","Max days"))
+
+#### ***summaries by studies*** ####
+response.length.summary <- response.dat %>%
+  filter(in_response_period == TRUE) %>%
+  group_by(Variable, Study_shorthand, year, trt) %>%
+  summarise(
+    n_response_dates = n(),
+    response_start = min(date),
+    response_end = max(date),
+    response_length_days = as.numeric(response_end - response_start),
+    .groups = "drop"
+  ) %>%
+  arrange(Study_shorthand, year, Variable)
+
+kable(response.length.summary)
+
+kable(response.length.summary,digits=2,col.names=c("Var","Study","yr","trt","# obs. dates","start date","end date","length (days)"))
 
 
 ```
@@ -547,7 +833,6 @@ ggplot(auc.diff, aes(x = del_size, y = AUC_diff_day, color = Study_shorthand)) +
 
 ```{r period averages}
 ## average (pre-deluge, post-deluge through the end of year, response period)
-
 
 ```
 
