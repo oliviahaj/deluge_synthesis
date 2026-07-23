@@ -433,9 +433,9 @@ nrow(auc.dat.filled) # 2146 == 2030 + 116
 ```{r CHECK AND CALC AUC's - magnitude}
 #### take averages
 dat<-auc.dat.filled%>%
-  # subset(Variable=="VWC")%>%
+  subset(Variable=="VWC")%>%
   # subset(Variable=="GCC")%>%
-  subset(Variable=="SR")%>%
+  # subset(Variable=="SR")%>%
   group_by(Study_shorthand,year)%>%
   mutate(Study_trt=paste0(Study_shorthand,"_",trt),
          trt_type=case_when(
@@ -509,7 +509,22 @@ auc.diff <- auc.trts %>%
     AUC_diff_day = AUC_diff / 28
   )
 
-# view(auc.diff)
+str(auc.diff)
+
+auc.diff.clean<-auc.diff%>%
+  rename(AUC_del=AUC,AUC_del_div28=AUC_day,AUC_con_div28=AUC_con_day,diff_AUC=AUC_diff,diff_AUC_div28=AUC_diff_day)%>%
+  select(Variable,Study_shorthand,year,trt,del_size,timing,del_start,del_end,resp_period_end,AUC_del,AUC_con,diff_AUC)
+
+auc.diff.clean
+
+# write.csv(auc.diff.clean, file = file.path("deluge", "data", "R_exports", "Deluge_response_magnitudes.csv"), row.names = FALSE)
+# 
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "Deluge_response_magnitudes.csv"), overwrite = T,
+#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+
+
+  
+###### ***export this table***** ######
 
 ## check 
 ggplot(auc.diff, aes(x = Study_shorthand, y = AUC_diff_day, color = factor(del_size), shape = timing)) +
@@ -761,8 +776,8 @@ response.dat <- response.dat %>%
 ## choose variable/study to inspect
 check.plot.dat <- response.dat%>%
   # filter(Variable=="VWC")
-  # filter(Variable=="SR")
-  filter(Variable=="GCC")
+  filter(Variable=="SR")
+  # filter(Variable=="GCC")
 
 
 ggplot(check.plot.dat,
@@ -825,8 +840,15 @@ response.length.summary <- response.dat %>%
 
 kable(response.length.summary)
 
-kable(response.length.summary,digits=2,col.names=c("Var","Study","yr","trt","# obs. dates","start date","end date","length (days)"))
+###### ***export this table***** ######
 
+
+# write.csv(response.length.summary, file = file.path("deluge", "data", "R_exports", "Deluge_response_lengths.csv"), row.names = FALSE)
+# 
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "Deluge_response_lengths.csv"), overwrite = T,
+#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+
+# kable(response.length.summary,digits=2,col.names=c("Var","Study","yr","trt","# obs. dates","start date","end date","length (days)"))
 
 ```
 
@@ -836,6 +858,7 @@ kable(response.length.summary,digits=2,col.names=c("Var","Study","yr","trt","# o
 
 ```
 
+```{r ANPP vs. GCC and VWC}
 
 
 
@@ -843,83 +866,55 @@ kable(response.length.summary,digits=2,col.names=c("Var","Study","yr","trt","# o
 
 
 
-
-
-
-
-
-
-
-
-
-
-```{r magnitude bar graphs}
-# ggplot(GCC.auc, aes(x = del_size, y = AUC_diff, color = Study_shorthand, shape = timing)) +
-#   geom_point(size = 3) +
-#   geom_smooth(method = "lm", se = FALSE, aes(group = 1), color = "black", linetype = "dashed") +
-#   labs(x = "Deluge Size (mm)", y = "AUC Difference (Treated - Control)",
-#        title = "GCC Response Period AUC vs. Deluge Size",
-#        color = "Study", shape = "Timing") +
-#   theme_classic()
-# 
-# ggplot(GCC.auc, aes(x = timing, y = AUC_diff, color = Study_shorthand)) +
-#   geom_point(size = 3, position = position_jitter(width = 0.1)) +
-#   labs(x = "Timing", y = "AUC Difference (Treated - Control)",
-#        title = "GCC Response Period AUC vs. Deluge Timing",
-#        color = "Study") +
-#   theme_classic()
-
-### summarize all together
-# get all unique treatment combinations across all three variables
-all.trts <- bind_rows(
-  GCC.auc %>% select(Study_shorthand, year, trt, del_size, timing),
-  VWC.auc %>% select(Study_shorthand, year, trt, del_size, timing),
-  SR.auc  %>% select(Study_shorthand, year, trt, del_size, timing)
-) %>% distinct()
-
-# join all three variables to the full list
-auc.summary <- all.trts %>%
-  left_join(GCC.auc %>% select(Study_shorthand, year, trt, del_size, timing, AUC_diff) %>% rename(AUC_diff_GCC = AUC_diff),
-            by = c("Study_shorthand", "year", "trt", "del_size", "timing")) %>%
-  left_join(VWC.auc %>% select(Study_shorthand, year, trt, del_size, timing, AUC_diff) %>% rename(AUC_diff_VWC = AUC_diff),
-            by = c("Study_shorthand", "year", "trt", "del_size", "timing")) %>%
-  left_join(SR.auc  %>% select(Study_shorthand, year, trt, del_size, timing, AUC_diff) %>% rename(AUC_diff_SR  = AUC_diff),
-            by = c("Study_shorthand", "year", "trt", "del_size", "timing"))
-
-# look at highest differences by each var
-auc.summary%>%
-  arrange(desc(AUC_diff_VWC))
-
-auc.summary%>%
-  arrange(desc(AUC_diff_GCC))
-
-auc.summary%>%
-  arrange(desc(AUC_diff_SR))
-
-auc.summary.bydays<-auc.summary %>%
-  mutate(across(starts_with("AUC_diff"), ~ . / 28)) %>%
-  kable(digits = 3,
-        col.names = c("Study", "Year", "Treatment", "Deluge Size (mm)", "Timing",
-                      "GCC mean diff", "VWC mean diff (%)", "SR mean diff"),
-        caption = "Mean daily response above control during 28-day response period")
-
-# look at by study ranks all together
-auc.summary %>%
-  mutate(across(starts_with("AUC_diff"), ~ . / 28)) %>%
-  mutate(
-    rank_GCC = rank(-AUC_diff_GCC),
-    rank_VWC = rank(-AUC_diff_VWC),
-    rank_SR  = rank(-AUC_diff_SR)
-  ) %>%
-  select(Study_shorthand, year, trt, del_size, timing, 
-         rank_GCC,rank_VWC,rank_SR)
 
 ```
+
+```{r GCC vs. VWC, VWC vs. SR}
+mag.length.files<-c("Deluge_response_lengths.csv","Deluge_response_magnitudes.csv","ANPP_and_AUC.csv")
+
+for (i in mag.length.files){
+  
+file.name<-drive.files %>% 
+  dplyr::filter(name == i) 
+
+# if-else, to throw error if file name is incorrect or error would otherwise stop loop
+if(nrow(file.name) == 1){
+  googledrive::drive_download(file = file.name$id, 
+                              overwrite = T,
+                              path = file.path("deluge", 'data', i))
+  
+} else{
+  message("File error - check name or if duplicated: ", i)
+  }
+}
+
+
+del.mags<-read.csv("deluge/data/Deluge_response_magnitudes.csv")
+glimpse(del.mags)
+
+del.length<-read.csv("deluge/data/Deluge_response_lengths.csv")
+glimpse(del.length)
+```
+
 
 
 ### AUC ~ timing and size regressions 
 ```{r magnitude regressions}
+r2.labels <- del.length %>%
+  group_by(Variable) %>%
+  summarise(
+    r2 = summary(lm(AUC_diff_day ~ del_size))$r.squared,
+    p  = summary(lm(AUC_diff_day ~ del_size))$coefficients[2,4],
+    label = paste0("R² = ", round(r2, 2), ", p = ", round(p, 3))
+  )
 
+ggplot(auc.diff, aes(x = del_size, y = AUC_diff_day)) +
+  geom_point(aes(color = Study_shorthand, shape = timing), size = 3) +
+  geom_smooth(method = "lm", se = TRUE, aes(group = 1), color = "black", linetype = "dashed") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_text(data = r2.labels, aes(label = label), x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5) +
+  facet_wrap(~Variable, scales = "free_y") +
+  theme_bw()
 
 ```
 
