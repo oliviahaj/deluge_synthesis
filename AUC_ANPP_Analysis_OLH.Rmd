@@ -1,0 +1,118 @@
+---
+title: "ANPP - Continous Analysis"
+author: "OLH"
+date: "2026-07"
+output: 
+  bookdown::html_document2:
+    code_folding: hide
+    toc: TRUE
+    toc_depth: 4
+    toc_float: TRUE
+    collapsed: TRUE
+    theme: spacelab
+    fig_caption: TRUE
+    number_sections: FALSE
+---
+# Setup
+<style>h1 {font-size: 24pt; } h2 {font-size: 20pt; } h3 {font-size: 18pt; } h4 {font-size: 16pt; } h5 {font-size: 14pt; } h6 {font-size: 12pt; } </style> 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, dpi = 600, progress = FALSE, cache = FALSE, fig.width=5,  fig.height=3.5, fig.align="center")
+
+options(repos = c(CRAN = "http://cran.rstudio.com"))
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, googledrive, supportR, lubridate)
+
+`%!in%` = Negate(`%in%`)
+
+```
+
+# Create Folders on Desktop
+```{r}
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge", 'data'), showWarnings = F)
+dir.create(file.path("deluge", 'precip_data'), showWarnings = F)
+dir.create(file.path("deluge", 'data', 'R_exports'), showWarnings = F)
+```
+
+# Download ANPP data
+```{r}
+##### ANPP Data
+anpp <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3")) %>%
+  dplyr::filter(name == "ANPP_paired_aggregated.csv")
+
+# Did that work?
+anpp
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = anpp$id, overwrite = T, type = "csv",
+                            path = file.path("deluge","data","R_exports", anpp$name))
+
+# Read in the PRS file
+anpp <- read.csv(file = file.path("deluge","data","R_exports", "ANPP_paired_aggregated.csv"))
+
+```
+
+# Download the Continuous data 
+- starting with AUC here
+```{r}
+auc <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3")) %>%
+  dplyr::filter(name == "Deluge_response_magnitudes.csv")
+
+# Did that work?
+auc
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = auc$id, overwrite = T, type = "csv",
+                            path = file.path("deluge","data","R_exports", auc$name))
+
+# Read in the PRS file
+auc <- read.csv(file = file.path("deluge","data","R_exports", "Deluge_response_magnitudes.csv"))
+
+```
+
+# Join the data
+
+```{r}
+glimpse(auc)
+glimpse(anpp)
+
+# need to fix hoover and hajek and greg tooley fall stuff
+anpp.2 <- anpp %>%
+  mutate(Study_shorthand = ifelse(Study_shorthand == "Hoover2022_CPER_DEX", "Hoover2022", Study_shorthand), 
+         year = ifelse(Study_shorthand %in% c("Tooley_DRE", "Hajek2024"), year-1, year))
+
+auc.anpp <- left_join(anpp.2, auc) %>%
+  mutate(daily = diff_AUC/28)
+```
+
+# Explore ANPP and VWC
+```{r}
+ggplot(data = subset(auc.anpp, auc.anpp$func == "ANPP"), aes(daily, npp_diff, color = Study_shorthand))+
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~Variable, scales="free")
+  
+ggplot(data = auc.anpp, aes(diff_AUC, npp_diff, color = func))+
+  geom_point()+
+  geom_smooth(method="lm", se = FALSE)+
+  theme_bw()+
+  facet_wrap(~Variable, scales="free")
+```
+
+# save this
+```{r}
+write.csv(x = auc.anpp, row.names = F, na = '',
+          file = file.path("deluge", "data", "R_exports","ANPP_and_AUC.csv"))
+
+# Upload to Drive
+drive_upload(
+  media = file.path("deluge", "data", "R_exports", "ANPP_and_AUC.csv"),
+  path = file.path("deluge", "data","R_exports"),
+  name = "ANPP_and_AUC.csv",
+  overwrite = T)
+
+```
+
+
+
