@@ -106,6 +106,8 @@ siggers_CCE<-CCE%>%
          C4_grass=C4_g*10,
          Forb=Forb_g*10,
          ANPP=Total_g_m)%>%
+  # Addingin a line where you could remove plots with high cactus levels
+  #filter(Cactus_. < 10)%>%
   select(Study_shorthand,plot,Block,Replicate,trt,year,C3_grass,C4_grass,Forb,ANPP)%>%
   group_by(Study_shorthand,Block,plot,trt,year)%>%
   dplyr::summarise(
@@ -118,6 +120,16 @@ siggers_CCE<-CCE%>%
 CCE_long<-siggers_CCE%>%
   pivot_longer(cols=C3:ANPP,names_to="funct_group",values_to="ANPP")
 
+
+# cce.comp <- CCE_long %>%
+#   filter(funct_group == "ANPP") %>%
+#   ungroup()%>%
+#   group_by(year, Block, trt) %>%
+#   summarize(mean_anpp = mean(ANPP)) %>%
+#   ungroup()%>%
+#   group_by(year, trt) %>%
+#   summarize(anpp = mean(mean_anpp))
+  
 head(CCE_long)
 ```
 
