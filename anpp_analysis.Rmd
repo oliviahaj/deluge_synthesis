@@ -362,7 +362,9 @@ trt.data.2 <- trt.data %>%
   rename(Study_shorthand = Study, 
          year = Year)%>%
   mutate(year = as.character(year))
-  
+
+glimpse(paired)  
+glimpse(bnpp_prep)  
 
 combined <- paired %>%
   rbind(bnpp_prep) %>%
