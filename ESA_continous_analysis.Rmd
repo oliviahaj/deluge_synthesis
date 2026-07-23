@@ -35,7 +35,7 @@ library(googledrive)
 ## Plan for Continuous data in the talk:
 1. Filter out Mary totally, filter out Greg drought legacies
 2. Use longest response period from published (probably Alison big deluge) and find maximums to check, and AUC to analyze more (potentially split also into immediate and full response periods)
-3. AUC ~ timing*size for everyone to look for those being important [[update for 20 July after looking at this -- likly not enough replication in each to look at this formally w regression]]
+3. AUC ~ timing*size for everyone to look for those being important [[update for 20 July after looking at this -- likly not enough replication in each to look at this formally w regression]] -- do just with growing season vs. fall timing and normal vs. extra large sizes (80mm??) 
 4. Probably make some bar plots of AUCs to compare magnitude (for pre-/response (or response split)/post-) -- maybe keep fall out of post if that doesn't make sense?
 5. Add relationship of GCC to ANPP -- ANPP increase w/ deluge ~ GCC's AUC (OR change to timing like relative 20%) (OR ANPP's difference explained by BOTH GCC magnitude over consistent periods AND GCC total increased length within each study)
 
@@ -52,7 +52,7 @@ dir.create(file.path("deluge","figures"))
 # read in continuous files
 drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3?usp=drive_link"))
 
-cont.files<-c("GCC_filtered.csv","SR_filtered.csv","VWC_20cm_filtered.csv","deluge_characteristics_mergeable.csv")
+cont.files<-c("GCC_filtered.csv","SR_filtered.csv","VWC_20cm_filtered.csv","deluge_characteristics_mergeable.csv","deluge_trt_keys.csv")
 
 ## read in each file
 for (i in cont.files){
@@ -76,13 +76,13 @@ if(nrow(file.name) == 1){
 # check all continuous files
 ## read in
 GCC<-read.csv("deluge/data/GCC_filtered.csv")
-str(GCC)
+str(GCC) # 6103 -- OK
 
 VWC<-read.csv("deluge/data/VWC_20cm_filtered.csv")
-str(VWC)
+str(VWC) # 6323 -- OK
 
 SR<-read.csv("deluge/data/SR_filtered.csv")
-str(SR)
+str(SR) # 3753 -- OK
 
 ## check each
 # GCC
@@ -93,8 +93,18 @@ GCC.dat<-GCC%>%
   filter(!Study_shorthand=="Linabury_ChANGE")%>% # drop Mary 
   filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
 
+GCC.na<-GCC.dat%>%
+  filter(is.na(var))
+# view(GCC.na)
+
 tapply(GCC.dat$year, GCC.dat$Study_shorthand, unique)
 unique(GCC.dat$Study_shorthand)
+
+# quiz viz of all #
+ggplot(GCC.dat, aes(date, var))+
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~Study_shorthand, scales="free") # OK- nothing looks too unreasonable
 
 # VWC
 tapply(VWC$year, VWC$Study_shorthand, unique)
@@ -104,11 +114,17 @@ VWC.dat<-VWC%>%
   filter(!Study_shorthand=="Linabury_ChANGE")%>% # drop Mary 
   filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
 
-# double-check rows where as.numeric conversion failed
-VWC %>%
-  mutate(var = suppressWarnings(as.numeric(VWC))) %>%
-  filter(is.na(var) & !is.na(VWC))  # NA in result but NOT NA in original = coercion failure
+VWC.na<-VWC.dat%>%
+  filter(is.na(var))
+# view(VWC.na)
 
+# quiz viz of all #
+ggplot(VWC.dat, aes(date, var))+
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~Study_shorthand, scales="free") # OK- nothing looks too unreasonable
+
+# check 
 tapply(VWC$year, VWC$Study_shorthand, unique)
 
 # SR
@@ -118,11 +134,17 @@ SR.dat<-SR%>%
   mutate(var=as.numeric(efflux))%>%
   filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL")))
 
-# double-check rows where as.numeric conversion failed
-SR %>%
-  mutate(var = suppressWarnings(as.numeric(efflux))) %>%
-  filter(is.na(var) & !is.na(efflux))  # NA in result but NOT NA in original = coercion failure
+SR.na<-SR.dat%>%
+  filter(is.na(var))
+# view(SR.na)
 
+# quiz viz of all #
+ggplot(SR.dat, aes(date, var))+
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~Study_shorthand, scales="free") # OK- nothing looks too unreasonable
+
+# check
 tapply(SR$year, SR$Study_shorthand, unique)
 ```
 
@@ -134,51 +156,48 @@ con.labels<-list("20 cm VWC (%)","GCC","Efflux")
 ## also read in deluge characteristics data to merge with
 del.info<-read.csv("deluge/data/deluge_characteristics_mergeable.csv")
 # view(del.info)
+str(del.info)
+
+del.info<-del.info%>%
+  mutate(Study_trt=paste0(Study_shorthand,"_",trt))
+
+## and trt key by study/year
+del.trts<-read.csv("deluge/data/deluge_trt_keys.csv")%>%
+  rename(control_trt=con)
+str(del.trts)
+del.trts
 ```
 
 ### Assign response periods
 ```{r response period assignment}
 #### Post -- 28 days response period in both studies -- using approximately when largest deluge VWC returned to ambient levels
 
-## separate controls vs. treated (deluges)
-controls.info<-del.info%>%
-  filter(is.na(del_start))%>%
-  select(c("Study_shorthand","year","control_trt"="trt")) # only keep these columns for controls -- other columns are not consistent for controls
-
-treated.info<-del.info%>%
-  filter(!is.na(del_start))%>% # keep all columns for deluge trts
+##### assign response periods ######
+##### from del.trts -- which already duplicates controls where needed for multiple deluge treatments
+### response period info 
+resp.assign<-del.trts%>%
+  # format dates for deluge start and end and create response period end date (+28 days after start)
   mutate(del_start=as.Date(del_start,format="%m/%d/%y"),
          del_end=as.Date(del_end,format="%m/%d/%y"),
          resp_period_end=del_start+28)
 
-## pair each deluge trt with what it's control is called (DR_DEL to DR or CON_DEL to CON or SEP_DEL and OCT_DEL to CON)
-trt.pairs<-treated.info%>%
-  left_join(controls.info,by=c("Study_shorthand","year"), relationship="many-to-many")%>%
-  filter(
-    # choose treatments that match to pair up -- like CON --> CON_DEL and DR --> DR_DEL
-    startsWith(trt,control_trt)| # either pair together
-      
-    # OR choose to duplicate control row where there is only one control per study
-    Study_shorthand %in% (
-      controls.info%>%
-        group_by(Study_shorthand,year)%>%
-        filter(n()==1)%>% # where there is only ONE control for each Study/year
-        pull(Study_shorthand)
-    )
-  )
+### add in deluge info from del.info
+trt.pairs<-resp.assign%>% # keep all from resp.assign
+  left_join(del.info%>%select(Study_shorthand,year,trt,del_size,timing), # add these columns from del.info file too
+            by=c("Study_shorthand","year","trt"))
 
-### also remove extra DRE trts
-trt.pairs <- trt.pairs %>%
-  filter(!(Study_shorthand == "Tooley_DRE" & trt %in% c("DR_DEL", "DR"))) %>%
-  filter(!(Study_shorthand == "Tooley_DRE" & control_trt == "DR"))
+# ### also remove extra DRE trts
+# trt.pairs<-trt.pairs %>%
+#   filter(!(Study_shorthand == "Tooley_DRE" & trt %in% c("DR_DEL"))) # remove Tooley DR legacy plots, only keep the deluged plots w/ ambient history
 
 ## stack treated and control rows together with their date windows (and duplicate controls where needed for multiple deluge trts)
 trt.lookup.long<-trt.pairs%>%
-  select(Study_shorthand,year,trt,del_size,timing,control_trt,del_start,del_end,resp_period_end)%>%
-  pivot_longer(cols=c(trt,control_trt),names_to=NULL,values_to="trt")
+  select(Study_shorthand,year,trt,control_trt,del_size,timing,del_start,del_end,resp_period_end)%>%
+  pivot_longer(cols=c(trt,control_trt),names_to="con_vs_trt",values_to="trt")
 
-str(trt.lookup.long)
+head(trt.lookup.long)
 
+##### join response periods w/ full continuous data ######
 ## assign each continuous var's data to mark response periods by study and trt
 cont.list<-list(GCC=GCC.dat,SR=SR.dat,VWC=VWC.dat)
 
@@ -191,98 +210,364 @@ for (i in seq_along(cont.list)) {
       resp_period=case_when(
         date <= del_start ~ "pre_del",
         date > del_start & date <= resp_period_end ~ "del_resp",
-        date > resp_period_end ~ "post_del"))%>%
-    select(-del_start,resp_period_end,resp_period)
+        date > resp_period_end ~ "post_del",
+        TRUE ~ NA_character_)) # NA's for when there are not del_start/del_end/resp_period_end dates -- primarily for years w/ fall deluges that continue into next year (& next year will not have any deluge dates)
 }
 
 GCC.dat.new<-cont.list$GCC
 SR.dat.new<-cont.list$SR
 VWC.dat.new<-cont.list$VWC
+```
 
+### check data
+```{r combine paired trt-controls data}
+#### check data # of rows, trt combos, etc. ####
 # "new" dats should be slightly more n b/c some controls have duplicated to match all trts
 nrow(GCC.dat)
 nrow(GCC.dat.new)
+nrow(GCC.dat.new)/nrow(GCC.dat)
 
 nrow(SR.dat)
 nrow(SR.dat.new)
+nrow(SR.dat.new)/nrow(SR.dat)
 
 nrow(VWC.dat)
 nrow(VWC.dat.new)
+nrow(VWC.dat.new)/nrow(VWC.dat)
+
+# check how many pts per del period
+# dat<-GCC.dat.new
+# dat<-SR.dat.new
+dat<-VWC.dat.new
+
+point.counts<-dat%>%
+  dplyr::count(Study_shorthand, year, trt, resp_period)%>% # how many data points are in eacy period
+  arrange(resp_period,Study_shorthand)
+point.counts
+
+# check any studies missing boundaries
+dat%>%
+  group_by(Study_shorthand,year,trt)%>%
+  summarise(
+    del_start=first(del_start),
+    resp_period_end=first(resp_period_end),
+    first_date=min(date),
+    last_date=max(date),
+    n=n())%>%
+  mutate(missing_boundary=first_date>del_start | last_date<resp_period_end) %>%
+  filter(missing_boundary=="TRUE")
+
+#### merge all continuous data together ####
+str(VWC.dat.new)
+str(GCC.dat.new)
+str(SR.dat.new)
+
+VWC.tomerge<-VWC.dat.new%>%
+  select(-c(VWC))
+
+GCC.tomerge<-GCC.dat.new%>%
+  select(-c(GCC))
+
+SR.tomerge<-SR.dat.new%>%
+  select(-c(efflux))%>%
+  mutate(plot=as.character(plot))
+
+all.continuous<-bind_rows(VWC.tomerge,GCC.tomerge,SR.tomerge)%>%
+  mutate(date=as.Date(date,format="%Y-%m-%d"),
+         date=if_else(as.numeric(format(date,"%Y"))<100,
+                      date+years(2000),
+                      date))
+str(all.continuous)
+
+#### averages and plot checks ####
+cont.avs<-all.continuous%>%
+  group_by(Study_shorthand,Variable,year,date,trt,con_vs_trt,del_size,timing,del_start,del_end,resp_period_end,resp_period)%>%
+  dplyr::summarise(
+    n.plots.per.date=n(),
+    trt.day.av=mean(var,na.rm=TRUE),
+    trt.day.SE=(sd(var,na.rm=TRUE))/sqrt(n.plots.per.date))%>%
+  filter(!(Study_shorthand=="Tooley_DRE" & year == "2026"))
+# view(cont.avs)
+
+## try plotting to check data
+### take averages
+dat<-cont.avs%>%
+  # subset(Variable=="VWC")%>%
+  subset(Variable=="GCC")%>%
+  # subset(Variable=="SR")%>%
+  group_by(Study_shorthand,year)%>%
+  mutate(Study_trt=paste0(Study_shorthand,"_",trt),
+         trt_type=factor(con_vs_trt,levels=c("control_trt","trt"),labels=c("CON","DEL")))
+
+### specify response period shading
+resp_rects<-dat%>%
+  filter(!is.na(del_end),!is.na(resp_period_end))%>%
+  distinct(Study_shorthand,year,del_start,resp_period_end)
+  
+### make the plot
+plot<-ggplot(dat,aes(x=date,y=trt.day.av,group=trt,linetype=trt_type,color=Study_trt)) +
+  geom_rect(data = resp_rects,aes(xmin = del_start,xmax = resp_period_end,ymin = -Inf,ymax = Inf),
+            inherit.aes = FALSE,
+            fill = "grey80",
+            alpha = 0.3)+
+  geom_line()+
+  geom_point()+
+  geom_errorbar(aes(ymin=trt.day.av-trt.day.SE, ymax=trt.day.av+trt.day.SE), width=0.2)+
+  scale_x_date(date_labels="%b %d") +
+  labs(
+    x="Date",
+    y="VWC",
+    linetype="Treatment")+
+  theme_bw()+
+  theme(legend.position="right")+
+  force_panelsizes(rows = unit(2.25, "in"),
+               cols = unit(4.25, "in"))+
+  facet_wrap(~Study_shorthand + year,scales="free")
+
+plot
 ```
 
 ### Calc. AUC's for all
-```{r AUC's}
+```{r PREP AUC's - magnitude}
 ## load package for trapazoidal AUC calculation 
 library(pracma)
 
-## list files to go through loop
-auc.dat.list<-list(GCC=GCC.dat.new,SR=SR.dat.new,VWC=VWC.dat.new)
+#### Approximate for AUC boudaries ####
+### get daily averages
+daily.avs<-all.continuous%>%
+  group_by(Variable,Study_shorthand,year,trt,date,del_size,timing,del_start,del_end,resp_period_end,resp_period)%>%
+  dplyr::summarise(
+    n.plots.per.date=sum(!is.na(var)),
+    trt.av=mean(var,na.rm=TRUE),
+    trt.sd=sd(var,na.rm=TRUE),
+    trt.SE=trt.sd/sqrt(n.plots.per.date))
 
-## run loop to calculate AUC during response period only -- comparing two methods of averaging
-for (i in seq_along(auc.dat.list)){
+### check studies missing observations before/after boundaries
+missing.bounds<-daily.avs%>%
+  group_by(Variable,Study_shorthand,year,trt)%>%
+  summarise(
+    del_start=first(del_start), # first() just grabs the first row's date since all rows repeat the date
+    resp_period_end=first(resp_period_end),
+    first_date=min(date),
+    last_date=max(date),
+    n=n())%>%
+  mutate(missing_boundary=
+           # observations start after deluge started
+           first_date>del_start | # OR
+           # observations ended before deluge response period ended
+           last_date<resp_period_end) %>%
+  filter(missing_boundary=="TRUE")
+view(missing.bounds)
   
-  df<-auc.dat.list[[i]]%>%
-    filter(resp_period=="del_resp") # calculate AUC's for response period only
-  
-  # AUC at plot level first, then average to trt level -- maybe NOT a good approach b/c then studies w/ more plots per trt have higher n contributing to AUC calculation
-  plot.first<-df%>%
-    group_by(Study_shorthand,year,trt,del_size,timing,plot)%>%
-    arrange(date)%>%
-    summarise(AUC=trapz(as.numeric(date),var), .groups="drop")%>%
-    group_by(Study_shorthand,year,trt,del_size,timing)%>%
-    summarise(AUC_mean=mean(AUC,na.rm=TRUE),.groups="drop")
-  
-  # average to trt levels first, then calculate AUC per date -- probably better approach to keep even across studies 
-  date.avs.first<-df%>%
-    group_by(Study_shorthand,year,trt,del_size,timing,date)%>%
-    summarise(var_mean=mean(var,na.rm=TRUE),.groups="drop")%>%
-    group_by(Study_shorthand,year,trt,del_size,timing)%>%
-    arrange(date)%>%
-    summarise(AUC_mean=trapz(as.numeric(date),var_mean),.groups="drop")
-  
-  # compare/save both AUC calculations
-  auc.dat.list[[i]]<-left_join(
-    plot.first%>%rename(AUC_plotfirst=AUC_mean),
-    date.avs.first%>%rename(AUC_datefirst=AUC_mean),
-    by=c("Study_shorthand","year","trt","del_size","timing"))
-  
-}
+#### interpolate missing AUC boundaries ####
+#### for calculating response period AUC's
+auc.dat<-daily.avs%>%
+  # drop Tooley GCC 2023-2024 b/c missing boundaries
+  filter(!(Study_shorthand=="Tooley_DRE" & Variable == "GCC" & year %in% c(2023,2024)))%>%
+  # drop Tooley SR 2024 b/c missing boundaries
+  filter(!(Study_shorthand=="Tooley_DRE" & Variable == "SR" & year == "2024"))%>%
+  filter(!is.na(del_start),!is.na(resp_period_end))
 
-### check out the differences b/t averaging methods
-GCC.auc<-auc.dat.list$GCC
-SR.auc<-auc.dat.list$SR
-VWC.auc<-auc.dat.list$VWC
 
-## continue comparing control and trt AUC's using only the datefirst averaging method -- where we average to trt levels first (more appropriate for across studies)
-for (i in seq_along(auc.dat.list)){
-  
-  # get AUC's for each control in the response period
-  con.auc<-auc.dat.list[[i]]%>%
-    filter(trt %in% trt.pairs$control_trt)%>%
-    select(Study_shorthand,year,trt,timing,del_size,AUC_datefirst)%>%
-    rename(control_trt=trt,AUC_con=AUC_datefirst)
-  
-  print(con.auc %>% filter(Study_shorthand == "Tooley_DRE"))
-  
-  # subtract trt AUC's from control AUC's within each study/year/trt (when multiple deluge trts)
-  auc.dat.list[[i]]<-auc.dat.list[[i]]%>%
-    filter(!trt %in% trt.pairs$control_trt)%>% # removes con rows so we can join side-by-side instead from above
-    select(Study_shorthand,year,trt,del_size,timing,AUC_datefirst)%>%
-    rename(AUC_del=AUC_datefirst)%>%
-    left_join(trt.pairs%>%select(Study_shorthand,year,trt,control_trt),
-              by=c("Study_shorthand","year","trt"))%>%
-    left_join(con.auc,by=c("Study_shorthand","year","control_trt","timing","del_size"),
-              relationship="many-to-many")%>%
-    mutate(AUC_diff=AUC_del-AUC_con)
-}
+#### check that grouping combo only have gives one del_start/resp_period_end
+check<-auc.dat%>%
+  dplyr::count(Variable,Study_shorthand,year,trt,del_start,resp_period_end)%>%
+  filter(n > 1)
+check # want to be nothing
 
-GCC.auc <- auc.dat.list$GCC
-SR.auc  <- auc.dat.list$SR
-VWC.auc <- auc.dat.list$VWC
+#### interpolating and adding points on boundaries
+## interpolate
+auc.dat.bounds<-auc.dat%>%
+  group_by(Variable,Study_shorthand,year,trt,del_size,timing,del_start,del_end,resp_period_end)%>%
+  # arrange date to put in order (matters for as.numeric(date))
+  arrange(date)%>%
+  dplyr::summarise(
+    start_point=approx(
+      x=as.numeric(date),
+      y=trt.av,
+      xout=as.numeric(first(del_start))
+    )$y,
+    end_point=approx(
+      x=as.numeric(date),
+      y=trt.av,
+      xout=as.numeric(first(resp_period_end))
+    )$y)
+
+# view(auc.dat.bounds)
+
+## make longer (single pt per date)
+auc.dat.bounds.long<-auc.dat.bounds%>%
+  pivot_longer(cols=c(start_point,end_point),
+               names_to="side",
+               values_to="trt.av")%>%
+  # assign single date to interpolated value for boundary date
+  mutate(date=case_when(
+    side=="start_point"~del_start,
+    side=="end_point"~resp_period_end))%>%
+  select(!side)
+
+# view(auc.dat.bounds.long)
+
+## "anti-join" to ONLY keep the interpolated point (auc.dat.bounds.long) if the auc daily avs (auc.dat) do not have a point there already -- so if someone did measure on an exact boundary day, we don't interpolate
+auc.new.bounds<-auc.dat.bounds.long%>%
+  anti_join(auc.dat,
+            by=c("Variable","Study_shorthand","year","trt","del_size","timing","del_start","del_end","resp_period_end","date"))
+
+# view(auc.new.bounds)
+nrow(auc.dat.bounds.long) # 184 total interpolated points
+nrow(auc.new.bounds) # 116 left when we drop where someone did measure on those dates
+
+## add to the whole data
+nrow(auc.dat) # 2030
+
+auc.dat.filled<-bind_rows(
+  auc.dat%>%mutate(interpolated=FALSE),
+  auc.new.bounds%>%mutate(interpolated=TRUE))%>% # combine
+  group_by(Variable,Study_shorthand,year,trt)%>% # sort nicely again
+  arrange(date,.by_group=TRUE)%>% # and put dates in order
+  ungroup()
+
+nrow(auc.dat.filled) # 2146 == 2030 + 116
+```
+
+```{r CHECK AND CALC AUC's - magnitude}
+#### take averages
+dat<-auc.dat.filled%>%
+  # subset(Variable=="VWC")%>%
+  # subset(Variable=="GCC")%>%
+  subset(Variable=="SR")%>%
+  group_by(Study_shorthand,year)%>%
+  mutate(Study_trt=paste0(Study_shorthand,"_",trt),
+         trt_type=case_when(
+           trt %in% c("CON","DR") ~ "CON",
+           TRUE ~ "DEL"))%>%
+  filter(Study_shorthand %in% c("Hajek2024","Post2020"))
+
+### specify response period shading
+resp_rects<-dat%>%
+  filter(!is.na(del_end),!is.na(resp_period_end))%>%
+  distinct(Study_shorthand,year,del_start,resp_period_end)
+  
+### make the plot
+filled.plot<-ggplot(dat,aes(x=date,y=trt.av,group=trt,linetype=trt_type,color=Study_trt)) +
+  geom_rect(data = resp_rects,aes(xmin = del_start,xmax = resp_period_end,ymin = -Inf,ymax = Inf),
+            inherit.aes = FALSE,
+            fill = "grey80",
+            alpha = 0.3)+
+  geom_line()+
+  geom_point(aes(shape=interpolated), size=3)+
+  geom_errorbar(aes(ymin=trt.av-trt.SE, ymax=trt.av+trt.SE), width=0.2)+
+  scale_x_date(date_labels="%b %d") +
+  labs(
+    x="Date",
+    y="VWC",
+    linetype="Treatment")+
+  theme_bw()+
+  theme(legend.position="right")+
+  force_panelsizes(rows = unit(2.25, "in"),
+               cols = unit(4.25, "in"))+
+  facet_wrap(~Study_shorthand + year,scales="free")
+
+filled.plot
+
+#### calculate auc's ####
+auc.calcs<-auc.dat.filled%>%
+  # filter to only dates within the response period based on each row's date and del/resp_period dates
+  filter(date>=del_start & date<=resp_period_end)%>%
+  group_by(Variable,Study_shorthand,year,trt,del_size,timing,del_start,del_end,resp_period_end)%>%
+  # make sure dates are in order
+  arrange(date,.by_group=TRUE)%>%
+  # calculate!
+  dplyr::summarise(
+    AUC=trapz(as.numeric(date),trt.av)
+  )
+
+auc.calcs.paired <- auc.calcs %>%
+  left_join(trt.pairs %>% select(Study_shorthand, year, trt, control_trt, del_start, resp_period_end),
+            by = c("Study_shorthand", "year", "trt", "del_start", "resp_period_end"))
+
+# separate trts and controls
+auc.trts <- auc.calcs.paired %>%
+  filter(!is.na(control_trt))  # only deluge treatments have a control_trt
+
+auc.cons <- auc.calcs.paired %>%
+  filter(is.na(control_trt)) %>%
+  ungroup() %>%
+  select(Variable, Study_shorthand, year, trt, del_start, resp_period_end, AUC) %>%
+  rename(AUC_con = AUC, control_trt = trt) %>%
+  distinct()
+
+# join by matching control_trt to the control's trt name
+auc.diff <- auc.trts %>%
+  ungroup() %>%
+  left_join(auc.cons,
+            by = c("Variable", "Study_shorthand", "year", "control_trt", "del_start", "resp_period_end")) %>%
+  mutate(
+    AUC_diff     = AUC - AUC_con,
+    AUC_day      = AUC / 28,
+    AUC_con_day  = AUC_con / 28,
+    AUC_diff_day = AUC_diff / 28
+  )
+
+view(auc.diff)
+
+## check 
+ggplot(auc.diff, aes(x = Study_shorthand, y = AUC_diff_day, color = factor(del_size), shape = timing)) +
+  geom_point(size = 3) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  facet_wrap(~Variable, scales = "free_y") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(auc.diff, aes(x = del_size, y = AUC_diff_day, color = Study_shorthand, shape = timing)) +
+  geom_point(size = 3) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  facet_wrap(~Variable, scales = "free_y") +
+  theme_bw()
+
+ggplot(auc.diff, aes(x = del_size, y = AUC_diff_day, color = Study_shorthand)) +
+  geom_point(size = 3, aes(shape = timing)) +
+  geom_smooth(method = "lm", se = TRUE, aes(group = 1), color = "black", linetype = "dashed") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  facet_wrap(~Variable, scales = "free_y") +
+  theme_bw()
+```
+
+
+
+```{r rel 20% - resp lengths}
+
+
+## 20% stuff again
+
+
 
 ```
 
-### check AUC's compared over pre-, response periods, and post-del
+
+```{r period averages}
+## average (pre-deluge, post-deluge through the end of year, response period)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ```{r magnitude bar graphs}
 # ggplot(GCC.auc, aes(x = del_size, y = AUC_diff, color = Study_shorthand, shape = timing)) +
 #   geom_point(size = 3) +
@@ -345,6 +630,7 @@ auc.summary %>%
          rank_GCC,rank_VWC,rank_SR)
 
 ```
+
 
 ### AUC ~ timing and size regressions 
 ```{r magnitude regressions}
