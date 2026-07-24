@@ -923,10 +923,10 @@ full.response.summary<-auc.diff.clean%>%
 
 # view(full.response.summary)
 
-## write.csv(full.response.summary, file = file.path("deluge", "data", "R_exports", "combined_response_magnitude_length.csv"), row.names = FALSE)
-# 
-# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "combined_response_magnitude_length.csv"), overwrite = T,
-#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+write.csv(full.response.summary, file = file.path("deluge", "data", "R_exports", "combined_response_magnitude_length.csv"), row.names = FALSE)
+
+googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "combined_response_magnitude_length.csv"), overwrite = T,
+                        path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 
 ```
 
