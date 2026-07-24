@@ -194,7 +194,7 @@ trts <- anpp.ppt  %>%
   filter(del==1) %>%
   mutate(pairing = str_sub(trt, 1, 2), 
          pairing = ifelse(pairing == "DR", "DR", "CO")) %>%
-  select(pairing, Study_shorthand, year, func, mean_ANPP, se_ANPP,Size, Deluge.Timing) %>%
+  select(pairing, trt, Study_shorthand, year, func, mean_ANPP, se_ANPP,Size, Deluge.Timing) %>%
   rename(del_anpp = "mean_ANPP", 
          del_se = "se_ANPP")
 
@@ -349,7 +349,7 @@ ggplot(trts.b, aes(anpp_diff, bnpp_diff, color = Study_shorthand))+
 bnpp_prep <- trts.b %>%
   left_join(paired) %>%
   dplyr::select(c(Study_shorthand, trt, del_bnpp, del_bnpp_se, ctrl_bnpp, ctrl_bnpp_se, 
-           pairing, year, Difference.from.LTA.MAP)) %>%
+           pairing, year, Difference.from.LTA.MAP, Size, Deluge.Timing)) %>%
   rename(del_anpp = del_bnpp, 
          del_se = del_bnpp_se, 
          ctrl_anpp = ctrl_bnpp, 
@@ -392,6 +392,8 @@ ggplot() +
   theme_bw(base_size = 14) +
   ylab("Functional Group") +
   xlab("ANPP Difference (g/m2)")
+
+
 
 ggplot(data = combined, aes(del_ppt, pue)) +
   geom_point(aes(color = Study_shorthand ))+
