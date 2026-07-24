@@ -441,7 +441,7 @@ dat<-auc.dat.filled%>%
          trt_type=case_when(
            trt %in% c("CON","DR") ~ "CON",
            TRUE ~ "DEL"))%>%
-  filter(Study_shorthand %in% c("Hajek2024","Post2020"))
+  filter(Study_shorthand %in% c("Hajek2024","Post2021"))
 
 ### specify response period shading
 resp_rects<-dat%>%
@@ -527,34 +527,69 @@ auc.diff.clean
 ###### ***export this table***** ######
 
 ## check 
-ggplot(auc.diff, aes(x = Study_shorthand, y = AUC_diff_day, color = factor(del_size), shape = timing)) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0, linetype = "dashed") +
-  facet_wrap(~Variable, scales = "free_y") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# ggplot(auc.diff, aes(x = Study_shorthand, y = AUC_diff_day, color = factor(del_size), shape = timing)) +
+#   geom_point(size = 3) +
+#   geom_hline(yintercept = 0, linetype = "dashed") +
+#   facet_wrap(~Variable, scales = "free_y") +
+#   theme_bw() +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# 
+# ggplot(auc.diff, aes(x = del_size, y = AUC_diff_day, color = Study_shorthand, shape = timing)) +
+#   geom_point(size = 3) +
+#   geom_hline(yintercept = 0, linetype = "dashed") +
+#   facet_wrap(~Variable, scales = "free_y") +
+#   theme_bw()
+# 
+# r2.labels <- auc.diff %>%
+#   group_by(Variable) %>%
+#   summarise(
+#     r2 = summary(lm(AUC_diff_day ~ del_size))$r.squared,
+#     p  = summary(lm(AUC_diff_day ~ del_size))$coefficients[2,4],
+#     label = paste0("R² = ", round(r2, 2), ", p = ", round(p, 3))
+#   )
+# 
+# ggplot(auc.diff, aes(x = del_size, y = AUC_diff_day)) +
+#   geom_point(aes(color = Study_shorthand, shape = timing), size = 3) +
+#   geom_smooth(method = "lm", se = TRUE, aes(group = 1), color = "black", linetype = "dashed") +
+#   geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+#   geom_text(data = r2.labels, aes(label = label), x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5) +
+#   facet_wrap(~Variable, scales = "free_y") +
+#   theme_bw()
 
-ggplot(auc.diff, aes(x = del_size, y = AUC_diff_day, color = Study_shorthand, shape = timing)) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0, linetype = "dashed") +
-  facet_wrap(~Variable, scales = "free_y") +
+
+##### check response magnitudes vs. size #####
+resp_magnitude<-auc.diff%>%
+  # filter(timing=="fall")%>%
+  filter(!timing=="fall")%>%
+  mutate(Variable=factor(Variable,levels=c("VWC","GCC","SR")))%>%
+  mutate(Timing=factor(timing,levels=c("early","mid","late","fall"),labels=c("early g.s.","mid g.s.","late g.s.","fall")))
+
+pal<-brewer.pal(3, "Dark2")  # try Dark2, Set2, PRGn, BrBG
+
+library(ggpmisc)
+
+magnitude.plots<-ggplot(dat=resp_magnitude,aes(del_size,AUC_diff_day,shape=Timing,color=del_size))+
+  geom_point()+
+  scale_shape(name="Timing")+
+  scale_x_continuous(limits=c(15,125),n.breaks=7)+
+  scale_color_gradient2(low = pal[1], mid = pal[2], high = pal[3], 
+                        midpoint = 60,
+                        name = "Deluge size (mm)")+
+  xlab(expression(bold("Deluge size (mm)")))+
+  ylab(expression(atop(bold("Average Daily Deluge Response over 28-day response period"))))+
+  geom_smooth(method="lm",color="black",se=FALSE,linewidth=0.7,linetype="dashed",aes(group=1))+
+  # ggpmisc::stat_poly_eq(aes(label=paste(after_stat(p.value.label), 
+  #                                       after_stat(adj.rr.label),
+  #                                       after_stat(rr.label),
+  #                                       sep = "~~")),
+  #                       size=3,label.x="left",label.y="top")+
+  facet_wrap(~Variable,nrow=3,scales="free_y")+
+  # geom_vline(xintercept=60)+
   theme_bw()
+magnitude.plots
 
-r2.labels <- auc.diff %>%
-  group_by(Variable) %>%
-  summarise(
-    r2 = summary(lm(AUC_diff_day ~ del_size))$r.squared,
-    p  = summary(lm(AUC_diff_day ~ del_size))$coefficients[2,4],
-    label = paste0("R² = ", round(r2, 2), ", p = ", round(p, 3))
-  )
-
-ggplot(auc.diff, aes(x = del_size, y = AUC_diff_day)) +
-  geom_point(aes(color = Study_shorthand, shape = timing), size = 3) +
-  geom_smooth(method = "lm", se = TRUE, aes(group = 1), color = "black", linetype = "dashed") +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
-  geom_text(data = r2.labels, aes(label = label), x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5) +
-  facet_wrap(~Variable, scales = "free_y") +
-  theme_bw()
+##### export timing vs. relative responses ####
+# ggsave()
 ```
 
 
@@ -617,16 +652,21 @@ wide.daily.avs<-del.avs%>%
             by=c("Variable","location","year"))%>%
   # calculate the relative difference -- like %difference but divided by range instead of CON again
   mutate(rel.diff=(trt.av-con.av)/var.range)%>%
-  mutate(over.20.diff=case_when(
-    abs(rel.diff*100) < 20 ~ NA,
-    abs(rel.diff*100) > 20 ~ TRUE))
+  mutate(sig.response=case_when(
+    (rel.diff*100) >= 30 ~ "pos.30+",
+    (rel.diff*100) >= 20 ~ "pos.20+",
+    (rel.diff*100) >= 10 ~ "pos.10+",
+    (rel.diff*100) <= -30 ~ "neg.30+",
+    (rel.diff*100) <= -20 ~ "neg.20+",
+    (rel.diff*100) <= -10 ~ "neg.10+",
+    TRUE ~ NA))
 
 # view(wide.daily.avs)
 
-## save the dates that are >20% over
-over.20.dates<-wide.daily.avs%>%
-  select(Variable,Study_shorthand,year,trt,date,over.20.diff)%>%
-  filter(over.20.diff==TRUE)
+## save the dates that are over thresholds
+flagged.dates<-wide.daily.avs%>%
+  select(Variable,Study_shorthand,year,trt,date,sig.response)%>%
+  filter(!is.na(sig.response))
 
 #### plot check relative 20%'s ####
 ## add flagged dates back into daily.avs to check graphing
@@ -641,7 +681,7 @@ dat<-daily.avs%>%
            TRUE ~ "DEL"))
 nrow(dat)
 dat<-dat%>%
-  left_join(over.20.dates,by=c("Variable","Study_shorthand","year","trt","date"))
+  left_join(flagged.dates,by=c("Variable","Study_shorthand","year","trt","date"))
 nrow(dat)
 
 ### specify response period shading
@@ -650,16 +690,27 @@ resp_rects<-dat%>%
   distinct(Study_shorthand,year,del_start,resp_period_end)
   
 ### make the plot
+library(ggnewscale)
+
 filled.plot<-ggplot(dat,aes(x=date,y=trt.av,group=trt,linetype=trt_type,color=Study_trt)) +
-  geom_rect(data = resp_rects,aes(xmin = del_start,xmax = resp_period_end,ymin = -Inf,ymax = Inf),
-            inherit.aes = FALSE,
-            fill = "grey80",
-            alpha = 0.3)+
+  geom_rect(data=resp_rects,aes(xmin=del_start,xmax=resp_period_end,ymin=-Inf,ymax=Inf),
+            inherit.aes=FALSE,
+            fill="grey80",
+            alpha=0.3)+
   geom_line()+
   geom_point()+
   geom_errorbar(aes(ymin=trt.av-trt.SE, ymax=trt.av+trt.SE), width=0.2)+
-  geom_text(data = dat %>% filter(over.20.diff == TRUE),
-            aes(label = "+"), size = 5, vjust = -0.5, color = "black") +
+  ggnewscale::new_scale_color()+
+  geom_text(data=dat%>%filter(!is.na(sig.response)),
+            aes(label="+",color=sig.response),size=5,vjust=-0.5)+
+  scale_color_manual(values=c(
+    "pos.10+" = "darkseagreen2",
+    "pos.20+" = "darkseagreen",
+    "pos.30+" = "darkseagreen4",
+    "neg.10+" = "indianred2",
+    "neg.20+" = "indianred3",
+    "neg.30+" = "indianred4"
+  ))+
   scale_x_date(date_labels="%b %d") +
   labs(
     x="Date",
@@ -684,171 +735,198 @@ response.dat<-wide.daily.avs%>%
     TRUE ~ "none"))%>%
   arrange(Variable,Study_shorthand,year,trt,date)
 
-# view(response.dat)
-
-## check 
+##### check response lengths #####
 gr.dat<-response.dat%>%
   # filter(Variable=="GCC")
   filter(Variable=="VWC")
   # filter(Variable=="SR")
 
-ggplot(dat=gr.dat,aes(date,rel.diff,color=response))+
+# ggplot(dat=gr.dat,aes(date,rel.diff,color=response))+
+#   geom_point()+
+#   geom_hline(yintercept=c(-0.2,0.2), linetype="dashed")+
+#   facet_wrap(~Study_shorthand+year,scales="free_x")+
+#   theme_bw()
+
+resp_period.only<-response.dat%>%
+  # filter(resp_period=="del_resp")%>%
+  # filter(timing=="fall")%>%
+  filter(!timing=="fall")%>%
+  mutate(days_since=as.numeric(date)-as.numeric(del_start))%>%
+  mutate(Variable=factor(Variable,levels=c("VWC","GCC","SR")))
+
+# y.lims<-c(1,100)
+y.lims<-c(1,40)
+
+pal<-brewer.pal(3, "Dark2")  # try Dark2, Set2, PRGn, BrBG
+
+timing.plots<-ggplot(dat=resp_period.only,aes(days_since,rel.diff,shape=control_trt,color=del_size))+
+  annotate("rect", xmin=-Inf, xmax=Inf, ymin=-0.2, ymax=0.2, fill="gray80", alpha=0.5)+
   geom_point()+
-  geom_hline(yintercept=c(-0.2,0.2), linetype="dashed")+
-  facet_wrap(~Study_shorthand+year,scales="free_x")+
+  scale_shape(name="Background Climate",labels=c("Ambient/LTA","During Drought"))+
+  scale_x_continuous(limits=y.lims,n.breaks=7)+
+  scale_color_gradient2(low = pal[1], mid = pal[2], high = pal[3], 
+                        midpoint = 60,
+                        name = "Deluge size (mm)")+
+  xlab(expression(bold("Days Since Deluge")))+
+  ylab(expression(atop(bold("Increased Deluge Response"), "(Range-normalized % response)")))+
+  # facet_wrap(~Variable,nrow=1)+
+  geom_vline(xintercept=28)+
   theme_bw()
+timing.plots
 
-## check # of positive, neg, none (total, not just during response periods)
-table(gr.dat$response,useNA="always")
+##### export timing vs. relative responses ####
+# ggsave()
 
-#### assign where response direction changes ####
-response.dat<-response.dat%>%
+# ##### also sort by Study for Q's #####
+# resp_period.only<-response.dat%>%
+#   # filter(resp_period=="del_resp")%>%
+#   # filter(timing=="fall")%>%
+#   filter(!timing=="fall")%>%
+#   mutate(Study=factor(Study_shorthand,labels=c("Siggers et al. CCE"="CCE","Condon & Knapp 2026"="Condon_SL","Hoover et al. 2024"="Hoover2022","Post & Knapp 2020"="Post2020","Post & Knapp 2021"="Post2021")))%>%
+#   # mutate(Study=factor(Study_shorthand,labels=c("Hajek & Knapp 2024"="Hajek2024","Tooley et al. DRE"="Tooley_DRE")))%>%
+#   mutate(Variable=factor(Variable,levels=c("VWC","GCC","SR")))%>%
+#   mutate(days_since=as.numeric(date)-as.numeric(del_start))
+# 
+# 
+# # y.lims<-c(1,100)
+# y.lims<-c(1,40)
+# 
+# by.study<-ggplot(dat=resp_period.only,aes(days_since,rel.diff,shape=Study,color=trt))+
+#   annotate("rect", xmin=-Inf, xmax=Inf, ymin=-0.2, ymax=0.2, fill="gray80", alpha=0.5)+
+#   geom_point()+
+#   # scale_shape(name="Background Climate",labels=c("Ambient/LTA","During Drought"))+
+#   scale_x_continuous(limits=y.lims,n.breaks=7)+
+#   xlab(expression(bold("Days Since Deluge")))+
+#   ylab(expression(atop(bold("Increased Deluge Response"), "(Range-normalized % response)")))+
+#   facet_wrap(~Variable,nrow=1)+
+#   # geom_vline(xintercept=28)+
+#   theme_bw()
+# by.study
+# 
+# # ggsave()
+```
+
+```{r calc response lengths}
+#### get consecutive sig.response rates ####
+glimpse(response.dat) # this is in start of previous chunk
+
+#### get the previous and next responses
+lead.lags.responses<-response.dat%>%
+  filter(resp_period %in% c("del_resp","post_del"))%>%
+  arrange(Variable,Study_shorthand,year,trt,date)%>%
   group_by(Variable,Study_shorthand,year,trt)%>%
-  # when response changes b/t positive, negative, and none, give new run ID
-  mutate(response_change=
-           response != lag(response,
-                           default=first(response)),
-         response_event=cumsum(response_change))%>%
+  mutate(prev_resp=lag(response),
+         next_resp=lead(response),
+         response.filled=case_when(
+           ## both sides are none, replace with none
+           response !="none" & prev_resp=="none" & next_resp=="none" ~ "none",
+           ## both sides are positive, replace with positive
+           response !="positive" & prev_resp=="positive" & next_resp=="positive" ~ "positive",
+           ## both sides are negative, replace with negative
+           response !="negative" & prev_resp=="negative" & next_resp=="negative" ~ "negative",
+           ## keep all others same
+           TRUE ~ response))
+
+# view(lead.lags.responses)
+
+#### identify consecutive response sequences
+library(data.table)
+
+consecutive.responses<-lead.lags.responses%>%
+  mutate(run_id=rleid(response.filled))%>%
+  group_by(Variable,Study_shorthand,year,trt,run_id)%>%
+  mutate(run_response=first(response.filled),
+         run_length=n())%>%
   ungroup()
 
-#### get # of measurements in row w/ same response ####
-response.dat.postdel<-response.dat%>%
-  filter(date >= del_start)
+# view(consecutive.responses)
 
-## find where there is no response
-none.periods<-response.dat.postdel%>%
-  filter(response=="none")%>%
-  group_by(Variable,Study_shorthand,year,trt,response_event)%>%
+#### summary of run info
+response.runs.summary<-consecutive.responses%>%
+  
+  # drop any runs of "none"
+  filter(run_response %in% c("positive","negative"))%>%
+  group_by(Variable,Study_shorthand,year,trt,run_id,run_response)%>%
+  
   dplyr::summarise(
-    none_start=min(date),
-    none_end=max(date),
-    n_none=n(),
-    .groups="drop")
+    # get start date of run
+    run_start=min(date),
+    # get end date of run
+    run_end=max(date),
+    # check if end dates ever need to be corrected for ending on a filled date (don't think this is possible from rules)
+    end_adj=max(date[response==run_response[1]]),
+    # count calendar dates (including start/end date both)
+    n_cal_days=as.numeric(run_end-run_start)+1,
+    # save response direction
+    resp_period=first(resp_period),
+    .groups="drop")%>%
+  
+  # drop any single-day responses (edge cases that weren't filled by rules above b/c prev_resp or next_resp is NA)
+  filter(n_cal_days>1)%>%
+  
+  # within each group, number the runs by start date in case there were multiple rounds of interrupted responses (not sure this ever happens but could be possible ecologically like SoilResp slowing on a few cold days then ramping up again when warm)
+  group_by(Variable,Study_shorthand,year,trt,run_response)%>%
+  arrange(run_start)%>%
+  mutate(run_number=row_number())%>%
+  ungroup()
 
-## where no response periods last >= 2 measurement dates
-none.end<-none.periods%>%
-  filter(n_none>=2)%>%
+# view(response.runs.summary)
+
+##### identify any lags before consecutive responses #####
+lag.days<-consecutive.responses%>%
+  
+  # now we only want to look at the immediate response period (maybe extend this later for fall)
+  filter(!resp_period=="pre_del")%>%
+  
   group_by(Variable,Study_shorthand,year,trt)%>%
   dplyr::summarise(
-    none_end=min(none_start),
+    # find first date of response start
+    first_response_date=if_else(
+      # if there is a response, grab the min date
+      any(response.filled %in% c("positive","negative")),
+      min(date[response.filled %in% c("positive","negative")]),
+      # else
+      as.Date(NA)),
+    
+    # get first measurement date in the del_resp period
+    first_measurement_date=min(date),
+    
+    # get lag
+    lag_days = case_when(
+      # when there is a response, count how many days were between first measurement to first response
+      is.finite(as.numeric(first_response_date)) ~ as.numeric(first_response_date - first_measurement_date),
+      # when there is no response, make the lag NA
+      TRUE ~ NA_real_),
     .groups="drop")
 
-## where response flips directions
-flip.ends<-response.dat.postdel%>%
-  group_by(Variable,Study_shorthand,year,trt)%>%
-  arrange(date)%>%
-  mutate(previous_response=lag(response))%>%
-  filter(response %in% c("positive","negative"),
-         previous_response %in% c("positive","negative"),
-         response != previous_response)%>%
-  dplyr::summarise(
-    flip_end=min(date),
-    .groups="drop")
+# view(lag.days)
 
-#### combine stopping rules ####
-response.ends<-full_join(
-  none.end,flip.ends,
-  by=c("Variable","Study_shorthand","year","trt"))%>%
-  mutate(response_end=pmin(none_end,flip_end,na.rm=TRUE))%>%
-  select(Variable,Study_shorthand,year,trt,response_end)
+#### left join in to daily.avs to get all info together and export
+full.response.summary<-auc.diff.clean%>%
+  left_join(lag.days%>%
+              select(Variable,Study_shorthand,year,trt,first_response_date,first_measurement_date,lag_days),
+            by=c("Variable","Study_shorthand","year","trt"))%>%
+  left_join(response.runs.summary,
+            by = c("Variable", "Study_shorthand", "year", "trt"))%>%
+  rename(
+    new_resp_run.no=run_number,
+    new_resp_start=run_start,
+    new_resp_end=run_end,
+    new_resp_length=n_cal_days,
+    post_del_firstobs_date=first_measurement_date,
+    new_resp_lag_days=lag_days)%>%
+  mutate(diff_AUC_daily=diff_AUC/28)%>%
+  select(Variable,Study_shorthand,year,trt,del_size,timing,
+         del_start,del_end,resp_period_end,post_del_firstobs_date,
+         new_resp_run.no,new_resp_start,new_resp_end,new_resp_length,new_resp_lag_days,
+         AUC_del,AUC_con,diff_AUC,diff_AUC_daily)
 
-#### join w/ data ####
-response.dat <- response.dat %>%
-  left_join(
-    response.ends,
-    by=c(
-      "Variable",
-      "Study_shorthand",
-      "year",
-      "trt"
-    )
-  )
+# view(full.response.summary)
 
-response.dat <- response.dat %>%
-  mutate(
-    in_response_period =
-      date >= del_start &
-      date <= response_end &
-      response!="none"
-  )
-
-#### plot checks
-## choose variable/study to inspect
-check.plot.dat <- response.dat%>%
-  # filter(Variable=="VWC")
-  filter(Variable=="SR")
-  # filter(Variable=="GCC")
-
-
-ggplot(check.plot.dat,
-       aes(x=date,
-           y=rel.diff,
-           color=response)) +
-
-  geom_hline(yintercept=c(-0.2,0.2),
-             linetype="dashed") +
-
-  geom_line(aes(group=trt)) +
-
-  geom_point(aes(shape=in_response_period),
-             size=2) +
-
-  geom_vline(
-    data=response.ends,
-    aes(xintercept=response_end),
-    linetype="dashed",
-    color="black"
-  ) +
-
-  facet_wrap(~Study_shorthand + year,
-             scales="free_x") +
-
-  theme_bw()
-
-#### summary table ####
-#### summarize response lengths ####
-
-response.length.summary <- response.dat %>%
-  filter(in_response_period == TRUE) %>%
-  group_by(Variable, Study_shorthand, year, trt) %>%
-  summarise(
-    response_length = as.numeric(max(date)-min(date))+1,
-    .groups = "drop"
-  ) %>%
-  group_by(Variable) %>%
-  summarise(
-    min_response_length = min(response_length),
-    mean_response_length = mean(response_length),
-    max_response_length = max(response_length),
-    .groups = "drop"
-  )
-
-kable(response.length.summary,digits=2,col.names=c("Var","Min days","Av length","Max days"))
-
-#### ***summaries by studies*** ####
-response.length.summary <- response.dat %>%
-  filter(in_response_period == TRUE) %>%
-  group_by(Variable, Study_shorthand, year, trt) %>%
-  summarise(
-    n_response_dates = n(),
-    response_start = min(date),
-    response_end = max(date),
-    response_length_days = as.numeric(response_end - response_start),
-    .groups = "drop"
-  ) %>%
-  arrange(Study_shorthand, year, Variable)
-
-kable(response.length.summary)
-
-###### ***export this table***** ######
-
-
-# write.csv(response.length.summary, file = file.path("deluge", "data", "R_exports", "Deluge_response_lengths.csv"), row.names = FALSE)
+## write.csv(full.response.summary, file = file.path("deluge", "data", "R_exports", "combined_response_magnitude_length.csv"), row.names = FALSE)
 # 
-# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "Deluge_response_lengths.csv"), overwrite = T,
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "combined_response_magnitude_length.csv"), overwrite = T,
 #                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
-
-# kable(response.length.summary,digits=2,col.names=c("Var","Study","yr","trt","# obs. dates","start date","end date","length (days)"))
 
 ```
 
@@ -870,7 +948,8 @@ kable(response.length.summary)
 ```
 
 ```{r GCC vs. VWC, VWC vs. SR}
-mag.length.files<-c("Deluge_response_lengths.csv","Deluge_response_magnitudes.csv","ANPP_and_AUC.csv")
+##### SKIP TO HERE W/O RERUNNING ABOVE ####
+mag.length.files<-c("Deluge_response_lengths.csv","Deluge_response_magnitudes.csv","ANPP_paired_aggregated.csv")
 
 for (i in mag.length.files){
   
@@ -889,45 +968,196 @@ if(nrow(file.name) == 1){
 }
 
 
-del.mags<-read.csv("deluge/data/Deluge_response_magnitudes.csv")
-glimpse(del.mags)
+# full.response.summary<-read.csv("deluge/data/combined_response_magnitude_length.csv")
+# 
+# del.mags<-read.csv("deluge/data/Deluge_response_magnitudes.csv")
+# glimpse(del.mags)
+# 
+# del.length<-read.csv("deluge/data/Deluge_response_lengths.csv")
+# glimpse(del.length)
 
-del.length<-read.csv("deluge/data/Deluge_response_lengths.csv")
-glimpse(del.length)
+anpp<-read.csv("deluge/data/ANPP_paired_aggregated.csv")
+glimpse(anpp)
 ```
 
-
-
 ### AUC ~ timing and size regressions 
-```{r magnitude regressions}
-r2.labels <- del.length %>%
-  group_by(Variable) %>%
-  summarise(
-    r2 = summary(lm(AUC_diff_day ~ del_size))$r.squared,
-    p  = summary(lm(AUC_diff_day ~ del_size))$coefficients[2,4],
-    label = paste0("R² = ", round(r2, 2), ", p = ", round(p, 3))
-  )
+```{r magnitude graphing regressions}
+anpp.filt<-anpp%>%
+  select(c("Study_shorthand","year","trt","func","ctrl_anpp","ctrl_se","del_anpp","del_se","npp_diff","Size","Difference.from.LTA.MAP","pue","wyr_ppt"))%>%
+  rename("del_size"="Size")%>%
+  mutate(year=if_else(Study_shorthand %in% c("Hajek2024","Tooley_DRE"),year-1,year))%>%
+  mutate(Study_shorthand=str_replace(Study_shorthand,"Hoover2022_CPER_DEX","Hoover2022"))
+  
+nrow(anpp.filt)
 
-ggplot(auc.diff, aes(x = del_size, y = AUC_diff_day)) +
-  geom_point(aes(color = Study_shorthand, shape = timing), size = 3) +
-  geom_smooth(method = "lm", se = TRUE, aes(group = 1), color = "black", linetype = "dashed") +
+cont.responses<-full.response.summary%>%
+  filter(!Study_shorthand=="Tooley_DRE")
+nrow(cont.responses)
+
+anpp.filt%>%
+  distinct(Study_shorthand,year)
+
+cont.responses%>%
+  distinct(Study_shorthand,year)
+
+anpp.cont.combined<-merge(anpp.filt,cont.responses,by=c("Study_shorthand","year","trt","del_size"),all=TRUE)%>%
+  filter(!is.na(Variable))
+nrow(anpp.cont.combined)
+
+# view(anpp.cont.combined)
+
+#### graph variable magnitude vs. ANPP ####
+r2.labels<-anpp.cont.combined%>%
+  group_by(Variable,func)%>%
+  summarise(
+    r2 = summary(lm(npp_diff ~ diff_AUC_daily))$r.squared,
+    p  = summary(lm(npp_diff ~ diff_AUC_daily))$coefficients[2,4],
+    label = paste0("R² = ", round(r2, 2), ", p = ", round(p, 3)))
+
+gr.dat<-anpp.cont.combined#%>%
+  # filter(func=="ANPP")
+  # filter(func=="BNPP")
+  # filter(func=="FORB")
+  # filter(func=="GRASS")
+
+r2.dat<-r2.labels#%>%
+  # filter(func=="ANPP")
+  # filter(func=="BNPP")
+  # filter(func=="FORB")
+  # filter(func=="GRASS")
+
+pal<-brewer.pal(3, "Dark2")  # try Dark2, Set2, PRGn, BrBG
+
+
+ggplot(gr.dat,aes(x = diff_AUC_daily, y = npp_diff)) +
+  geom_point(aes(color = del_size, shape = timing), size = 3) +
+    scale_color_gradient2(low = pal[1], mid = pal[2], high = pal[3], 
+                        midpoint = 60,
+                        name = "Deluge size (mm)")+
+  geom_smooth(method = "lm", se = FALSE, aes(group = 1), color = "black", linetype = "dashed") +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
-  geom_text(data = r2.labels, aes(label = label), x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5) +
-  facet_wrap(~Variable, scales = "free_y") +
+  geom_text(data = r2.dat, aes(label = label), x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5) +
+  facet_wrap(~Variable+func, scales = "free") +
+  ylab("ANPP Deluge-Control")+
+  xlab("Average Daily Magnitude Difference")+
+  theme_bw()
+
+#### graph variable magnitude vs. ANPP -- NO CCE ####
+r2.labels<-anpp.cont.combined%>%
+  # filter(!Study_shorthand=="CCE")%>%
+  group_by(Variable,func)%>%
+  summarise(
+    r2 = summary(lm(npp_diff ~ diff_AUC_daily))$r.squared,
+    p  = summary(lm(npp_diff ~ diff_AUC_daily))$coefficients[2,4],
+    label = paste0("R² = ", round(r2, 2), ", p = ", round(p, 3)))%>%
+  filter(p<0.05)
+
+gr.dat<-anpp.cont.combined%>%
+  # filter(!Study_shorthand=="CCE")%>%
+  filter(func=="ANPP")
+  # filter(func=="BNPP")
+  # filter(func=="FORB")
+  # filter(func=="GRASS")
+
+r2.dat<-r2.labels%>%
+  filter(func=="ANPP")
+  # filter(func=="BNPP")
+  # filter(func=="FORB")
+  # filter(func=="GRASS")
+
+pal<-brewer.pal(3, "Dark2")  # try Dark2, Set2, PRGn, BrBG
+
+ggplot(gr.dat,aes(x=diff_AUC_daily, y=npp_diff)) +
+  geom_point(aes(color=del_size, shape=timing), size=3) +
+  scale_color_gradient2(low = pal[1], mid = pal[2], high = pal[3], 
+                        midpoint = 60,
+                        name = "Deluge size (mm)")+
+  geom_smooth(data=filter(gr.dat,Variable %in% c("GCC","SR")),method = "lm", se = FALSE, aes(group = 1), color = "black", linetype = "dashed") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_text(data = r2.dat, aes(label = label), x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5) +
+  facet_wrap(~Variable, scales = "free")+
+  ylab(expression(bold("ANPP Deluge-Control")))+
+  xlab(expression(bold("Average Daily Deluge Response over 28 day response period")))+
+  theme_bw()
+
+#### **export magnitude vs. anpp** ####
+
+
+
+##### check response magnitudes vs. size #####
+resp_magnitude<-anpp.cont.combined%>%
+  # filter(timing=="fall")%>%
+  filter(!timing=="fall")%>%
+  mutate(Variable=factor(Variable,levels=c("VWC","GCC","SR")))%>%
+  mutate(Timing=factor(timing,levels=c("early","mid","late","fall"),labels=c("early g.s.","mid g.s.","late g.s.","fall")))
+
+pal<-brewer.pal(3, "Dark2")  # try Dark2, Set2, PRGn, BrBG
+
+library(ggpmisc)
+
+magnitude.plots<-ggplot(dat=resp_magnitude,aes(del_size,diff_AUC_daily,shape=Timing,color=del_size))+
+  geom_point()+
+  scale_x_continuous(limits=c(15,125),n.breaks=7)+
+  scale_color_gradient2(low = pal[1], mid = pal[2], high = pal[3], 
+                        midpoint = 60,
+                        name = "Deluge size (mm)")+
+  xlab(expression(bold("Deluge size (mm)")))+
+  ylab(expression(atop(bold("Average Daily Deluge Response over 28-day response period"))))+
+  geom_smooth(method="lm",color="black",se=FALSE,linewidth=0.7,linetype="dashed",aes(group=1))+
+  # ggpmisc::stat_poly_eq(aes(label=paste(after_stat(p.value.label), 
+  #                                       after_stat(adj.rr.label),
+  #                                       after_stat(rr.label),
+  #                                       sep = "~~")),
+  #                       size=3,label.x="left",label.y="top")+
+  facet_wrap(~Variable,nrow=3,scales="free_y")+
+  # geom_vline(xintercept=60)+
+  theme_bw()
+magnitude.plots
+
+##### **export timing vs. relative responses** ####
+# ggsave()
+
+```
+
+```{r timing graphing regressions}
+r2.labels<-anpp.cont.combined%>%
+  group_by(Variable,func)%>%
+  summarise(
+    r2 = summary(lm(npp_diff ~ diff_AUC_daily))$r.squared,
+    p  = summary(lm(npp_diff ~ diff_AUC_daily))$coefficients[2,4],
+    label = paste0("R² = ", round(r2, 2), ", p = ", round(p, 3)))
+
+gr.dat<-anpp.cont.combined#%>%
+  # filter(func=="ANPP")
+  # filter(func=="BNPP")
+  # filter(func=="FORB")
+  # filter(func=="GRASS")
+
+r2.dat<-r2.labels#%>%
+  # filter(func=="ANPP")
+  # filter(func=="BNPP")
+  # filter(func=="FORB")
+  # filter(func=="GRASS")
+
+######## NOTES: add correct color scale from earlier plots here & run again w/o CCE #########
+pal<-brewer.pal(3, "Dark2")  # try Dark2, Set2, PRGn, BrBG
+
+
+ggplot(gr.dat,aes(x = new_resp_length, y = npp_diff)) +
+  geom_point(aes(color = del_size, shape = timing), size = 3) +
+  scale_color_gradient2(low = pal[1], mid = pal[2], high = pal[3], 
+                        midpoint = 60,
+                        name = "Deluge size (mm)")+
+  geom_smooth(method = "lm", se = FALSE, aes(group = 1), color = "black", linetype = "dashed") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_text(data = r2.dat, aes(label = label), x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5) +
+  facet_wrap(~Variable+func, scales = "free_y") +
+  ylab(expression(bold("Productivity Difference (g m"^-2*")")))+
+  xlab("Average Daily Deluge Response over 28-day response period")+
   theme_bw()
 
 ```
 
-### ANPP explained by GCC magnitude/timing?
-```{r get ANPP data setup}
-
-
-```
-
-```{r ANPP and GCC relationships}
-
-
-```
 
 ### VPD maybe? vs. VWC?? vs. GCC?? vs. ANPP??
 How much does VWC increase depends on VPD
