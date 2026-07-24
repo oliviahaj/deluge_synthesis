@@ -378,7 +378,10 @@ combo_summary <- combined %>%
 
 combo_summary$func <- factor(combo_summary$func, levels = c("BNPP", "FORB", "GRASS", "ANPP"))
 
-ggplot() +
+library(RColorBrewer)
+pal<-brewer.pal(3, "Dark2") 
+
+anpp.fig <- ggplot() +
   geom_jitter(data = combined, aes(x = npp_diff, y = func, fill = Size, shape = func), 
            alpha = 0.65, size = 2.3) +
     geom_point(data = combo_summary, aes(x = mean_npp, y = func, shape = func), size = 4.5, fill = "black") +
@@ -388,12 +391,15 @@ ggplot() +
                 width = 0.2) +
   scale_shape_manual(values = c(23, 24, 22, 21))+
   geom_vline(xintercept = 0, linetype = "dashed") +
-  scale_fill_viridis_c(option = "mako", direction = -1)+
+  #scale_fill_viridis_c(option = "mako", direction = -1)+
+  scale_fill_gradient2(low = pal[1], mid = pal[2], high = pal[3], 
+                        midpoint = 60,
+                        name = "Deluge size (mm)")+
   theme_bw(base_size = 14) +
   ylab("Functional Group") +
   xlab("ANPP Difference (g/m2)")
 
-
+ggsave("/Users/olhajek/Desktop/deluge_synthesis/Deluge_synthesis/deluge/figures/anpp_func_response.png", plot = anpp.fig, width = 9.5, height = 6, dpi = 600)
 
 ggplot(data = combined, aes(del_ppt, pue)) +
   geom_point(aes(color = Study_shorthand ))+
