@@ -1258,7 +1258,7 @@ NA.studies<-cont.responses%>%
   filter(is.na(diff_AUC_daily)|is.na(new_resp_length)|is.na(new_resp_lag_days))%>%
   select(Variable,Study_shorthand,year,trt,diff_AUC_daily,new_resp_length, new_resp_lag_days)
 
-view(NA.studies)
+# view(NA.studies)
 
 #### *** export table continuous responses summary *** ####
 # write.csv(cont.summary,file=file.path("deluge","data","R_exports","summary_of_continuous_responses.csv"),row.names=FALSE)
@@ -1301,10 +1301,10 @@ NA.studies.no.fall<-cont.responses%>%
 # view(NA.studies.no.fall)
 
 #### *** export table continuous responses summary *** ####
-write.csv(cont.summary.no.fall,file=file.path("deluge","data","R_exports","summary_of_continuous_responses_GS-ONLY.csv"),row.names=FALSE)
-
-googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "summary_of_continuous_responses_GS-ONLY.csv"), overwrite = T,
-                        path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+# write.csv(cont.summary.no.fall,file=file.path("deluge","data","R_exports","summary_of_continuous_responses_GS-ONLY.csv"),row.names=FALSE)
+# 
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "summary_of_continuous_responses_GS-ONLY.csv"), overwrite = T,
+#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 
 ```
 
