@@ -950,7 +950,7 @@ full.response.summary<-auc.diff.clean%>%
 
 #  ***************** SKIP TO HERE FOR PLOTTING W/O RERUNNING CACLUATIONS  *****************
 
-```{r GCC vs. VWC, VWC vs. SR}
+```{r Re-setup}
 drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3?usp=drive_link"))
 
 mag.length.files<-c("combined_response_magnitude_length.csv","ANPP_paired_aggregated.csv","postdel_daily_normalized_resp_percentages_and_lengths.csv","all_daily_normalized_resp_percentages.csv")
@@ -1076,6 +1076,7 @@ size.anpp<-ggplot(gr.dat,aes(x = Difference.from.LTA.MAP, y = npp_diff)) +
 size.anpp
 
 # ggsave("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/ESA Plots/size_anpp_LTA.pdf",size.anpp,width=9,height=4)
+
 ```
 
 ```{r plot magnitude or legnth of VWC/GCC vs. ANPP difference -- in talk}
@@ -1098,11 +1099,11 @@ y.lims<-c(-5,40)
 # ** GCC vs. ANPP
 var.name<-"GCC"
 
-# resp.type<-"mag_"
-# x.lab<-expression(bold("Average Daily GCC Magnitude Difference"))
+resp.type<-"mag_"
+x.lab<-expression(bold("Average Daily GCC Magnitude Difference"))
 
-resp.type<-"length_"
-x.lab<-expression(bold("Length of Elevated GCC Response"))
+# resp.type<-"length_"
+# x.lab<-expression(bold("Length of Elevated GCC Response"))
 
 gr.dat<-anpp.cont.combined%>%
   filter(func==func.name)%>%
@@ -1114,18 +1115,27 @@ gr.dat<-anpp.cont.combined%>%
     TRUE ~ "gs"),
     gs_fall=factor(gs_fall,levels=c("gs","fall")))
 
+no.fall<-gr.dat%>%
+  filter(!gs_fall=="fall")
+
+gs.no.CCE<-no.fall%>%
+  filter(!Study_shorthand=="CCE")
+
 # set shapes
 shape_vals<-c("early"=22,"mid"=21,"late"=23,"fall"=24)
 
 ## plot
 var.mag.anpp<-ggplot(gr.dat,aes(y=npp_diff,
-                                # x=diff_AUC_daily
-                                x=new_resp_length
+                                x=diff_AUC_daily
+                                # x=new_resp_length
                                 ))+
   # add 0 line
-  geom_hline(yintercept=0,linewidth=1,linetype="dashed",color="gray60")+
+  geom_hline(yintercept=0,linewidth=1,linetype="dashed",color="black")+
 # add and adjust points
-  geom_point(aes(fill=del_size,shape=timing),color="gray20",size=4.25)+
+  geom_point(aes(fill=del_size,shape=timing),
+             # color=Study_shorthand
+             color="gray20",
+             size=4.25)+
   scale_shape_manual(values=shape_vals,
                      breaks=c("early","mid","late","fall"),
                      labels=c("early g.s.","mid g.s.","late g.s.","fall"),
@@ -1133,7 +1143,8 @@ var.mag.anpp<-ggplot(gr.dat,aes(y=npp_diff,
   scale_fill_viridis_c(option = "viridis", name = "size (mm)",direction=-1)+
   # add and adjust best fit lines
   geom_smooth(data=gr.dat,method="lm",se=FALSE,aes(group=1),color="black",linetype="longdash",linewidth=1)+
-  geom_smooth(data=subset(gr.dat,gs_fall=="gs"),method="lm",se=FALSE,aes(group=1),color="black",linetype="solid",linewidth=1)+
+  geom_smooth(data=no.fall,method="lm",se=FALSE,aes(group=1),color="gray20",linetype="solid",linewidth=1)+
+  geom_smooth(data=gs.no.CCE,method="lm",se=FALSE,aes(group=1),color="gray20",linetype="dotted",linewidth=1)+
   # adjust axes
   ylab(y.lab)+
   scale_y_continuous(limits=y.lims)+
@@ -1161,7 +1172,7 @@ var.mag.anpp<-ggplot(gr.dat,aes(y=npp_diff,
 var.mag.anpp
 
 #### **export plot magnitude or length vs. anpp** ####
-# ggsave(paste0("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/ESA Plots/",var.name,"_",resp.type,"vs_anpp_diff.pdf"),var.mag.anpp,width=11,height=7)
+ggsave(paste0("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/ESA Plots/",var.name,"_",resp.type,"vs_anpp_diff.pdf"),var.mag.anpp,width=11,height=7)
 ```
 
 ```{r response lengths vs. normalized 20% threshold all vars -- in talk}
@@ -1224,6 +1235,39 @@ timing.plots
 ##### export timing vs. relative responses ####
 ggsave("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/ESA Plots/days_since_vs_mag_thresh_WFALL.pdf",timing.plots,width=26,height=10)
 
+#### ** Simple Example Response ** ####
+all.dates<-read.csv("deluge/data/all_daily_normalized_resp_percentages.csv")
+
+gr.dat<-all.dates%>%
+  mutate(del_start=as.Date(del_start,format="%Y-%m-%d"),
+         del_end=as.Date(del_end,format="%Y-%m-%d"),
+         resp_period_end=as.Date(resp_period_end,format="%Y-%m-%d"),
+         date=as.Date(date,format="%Y-%m-%d"))%>%
+  arrange(date)%>%
+  filter(Study_shorthand=="Post2021")%>%
+  filter(trt %in% c("DEL_20","DEL_120"))
+
+view(gr.dat)
+  
+x.lab<-expression(bold("Magnitude of Response (VWC %, GCC, SR)"))
+y.lab<-expression(bold("Date"))
+
+
+shape_vals<-c("early"=22,"mid"=21,"late"=23,"fall"=24)
+
+ex.plot<-ggplot(gr.dat,aes(x = as.Date(date,format="%Y-%m-%d"), y = trt.av, group = trt))+
+  geom_line(aes(color=trt))+
+  geom_point(aes(color=trt),size=3)+
+  scale_x_date()+
+  scale_color_manual(values=c("gray60","navyblue"))+
+  scale_linetype_manual(values=c("dashed","solid"))+
+  theme_bw()
+
+
+ex.plot
+
+
+# ggsave("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/ESA Plots/example_response.pdf",ex.plot,width=9,height=4)
 
 ```
 
