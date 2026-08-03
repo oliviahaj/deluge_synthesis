@@ -167,6 +167,7 @@ del.trts<-read.csv("deluge/data/deluge_trt_keys.csv")%>%
 str(del.trts)
 del.trts
 ```
+#  ***************** RUN ALL ABOVE HERE B/F SKIPPING BELOW *****************
 
 ### Assign response periods
 ```{r response period assignment}
@@ -433,15 +434,15 @@ nrow(auc.dat.filled) # 2146 == 2030 + 116
 ```{r CHECK AND CALC AUC's - magnitude}
 #### take averages
 dat<-auc.dat.filled%>%
-  subset(Variable=="VWC")%>%
-  # subset(Variable=="GCC")%>%
+  # subset(Variable=="VWC")%>%
+  subset(Variable=="GCC")%>%
   # subset(Variable=="SR")%>%
   group_by(Study_shorthand,year)%>%
   mutate(Study_trt=paste0(Study_shorthand,"_",trt),
          trt_type=case_when(
            trt %in% c("CON","DR") ~ "CON",
-           TRUE ~ "DEL"))%>%
-  filter(Study_shorthand %in% c("Hajek2024","Post2021"))
+           TRUE ~ "DEL"))#%>%
+  # filter(Study_shorthand %in% c("Hajek2024","Post2021"))
 
 ### specify response period shading
 resp_rects<-dat%>%
@@ -663,6 +664,7 @@ wide.daily.avs<-del.avs%>%
 
 # view(wide.daily.avs)
 
+
 ## save the dates that are over thresholds
 flagged.dates<-wide.daily.avs%>%
   select(Variable,Study_shorthand,year,trt,date,sig.response)%>%
@@ -734,6 +736,14 @@ response.dat<-wide.daily.avs%>%
     rel.diff < -0.20 ~ "negative",
     TRUE ~ "none"))%>%
   arrange(Variable,Study_shorthand,year,trt,date)
+
+#### *** export table of all daily averages (20% normalized responese) *** ####
+# write.csv(response.dat,file=file.path("deluge","data","R_exports","all_daily_normalized_resp_percentages.csv"),row.names=FALSE)
+# 
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "all_daily_normalized_resp_percentages.csv"), overwrite = T,
+#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+
+
 
 ##### check response lengths #####
 gr.dat<-response.dat%>%
@@ -839,7 +849,15 @@ consecutive.responses<-lead.lags.responses%>%
          run_length=n())%>%
   ungroup()
 
-# view(consecutive.responses)
+view(consecutive.responses)
+
+#### *** export table of all daily averages (20% normalized responese) *** ####
+# write.csv(consecutive.responses,file=file.path("deluge","data","R_exports","postdel_daily_normalized_resp_percentages_and_lengths.csv"),row.names=FALSE)
+# 
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "postdel_daily_normalized_resp_percentages_and_lengths.csv"), overwrite = T,
+#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+
+
 
 #### summary of run info
 response.runs.summary<-consecutive.responses%>%
@@ -901,7 +919,7 @@ lag.days<-consecutive.responses%>%
 
 # view(lag.days)
 
-#### left join in to daily.avs to get all info together and export
+#### left join in & export
 full.response.summary<-auc.diff.clean%>%
   left_join(lag.days%>%
               select(Variable,Study_shorthand,year,trt,first_response_date,first_measurement_date,lag_days),
@@ -923,33 +941,19 @@ full.response.summary<-auc.diff.clean%>%
 
 # view(full.response.summary)
 
-write.csv(full.response.summary, file = file.path("deluge", "data", "R_exports", "combined_response_magnitude_length.csv"), row.names = FALSE)
-
-googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "combined_response_magnitude_length.csv"), overwrite = T,
-                        path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
-
-```
-
-
-```{r period averages}
-## average (pre-deluge, post-deluge through the end of year, response period)
+# write.csv(full.response.summary, file = file.path("deluge", "data", "R_exports", "combined_response_magnitude_length.csv"), row.names = FALSE)
+# 
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "combined_response_magnitude_length.csv"), overwrite = T,
+#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 
 ```
 
-```{r ANPP vs. GCC and VWC}
+#  ***************** SKIP TO HERE FOR PLOTTING W/O RERUNNING CACLUATIONS  *****************
 
+```{r Re-setup}
+drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3?usp=drive_link"))
 
-
-
-
-
-
-
-```
-
-```{r GCC vs. VWC, VWC vs. SR}
-##### SKIP TO HERE W/O RERUNNING ABOVE ####
-mag.length.files<-c("Deluge_response_lengths.csv","Deluge_response_magnitudes.csv","ANPP_paired_aggregated.csv")
+mag.length.files<-c("combined_response_magnitude_length.csv","ANPP_paired_aggregated.csv","postdel_daily_normalized_resp_percentages_and_lengths.csv","all_daily_normalized_resp_percentages.csv")
 
 for (i in mag.length.files){
   
@@ -968,196 +972,481 @@ if(nrow(file.name) == 1){
 }
 
 
-# full.response.summary<-read.csv("deluge/data/combined_response_magnitude_length.csv")
-# 
-# del.mags<-read.csv("deluge/data/Deluge_response_magnitudes.csv")
-# glimpse(del.mags)
-# 
-# del.length<-read.csv("deluge/data/Deluge_response_lengths.csv")
-# glimpse(del.length)
+full.response.summary<-read.csv("deluge/data/combined_response_magnitude_length.csv")
+glimpse(full.response.summary)
 
 anpp<-read.csv("deluge/data/ANPP_paired_aggregated.csv")
 glimpse(anpp)
-```
 
-### AUC ~ timing and size regressions 
-```{r magnitude graphing regressions}
+postdel_mag.length<-read.csv("deluge/data/postdel_daily_normalized_resp_percentages_and_lengths.csv")
+
+## adjust anpp data to match continuous
 anpp.filt<-anpp%>%
   select(c("Study_shorthand","year","trt","func","ctrl_anpp","ctrl_se","del_anpp","del_se","npp_diff","Size","Difference.from.LTA.MAP","pue","wyr_ppt"))%>%
   rename("del_size"="Size")%>%
   mutate(year=if_else(Study_shorthand %in% c("Hajek2024","Tooley_DRE"),year-1,year))%>%
-  mutate(Study_shorthand=str_replace(Study_shorthand,"Hoover2022_CPER_DEX","Hoover2022"))
-  
+  mutate(Study_shorthand=str_replace(Study_shorthand,"Hoover2022_CPER_DEX","Hoover2022"))%>%
+  mutate(del_size=case_when(
+    Study_shorthand=="Tooley_DRE" & del_size==60 ~ 59.9,
+    Study_shorthand=="Tooley_DRE" & del_size==105 ~ 105.5,
+    TRUE ~ del_size
+  ))
+
 nrow(anpp.filt)
 
+## add timing (early/mid/late/fall) and del dates to anpp data
+anpp.w.info<-anpp.filt%>%
+  left_join(del.info,by=c("Study_shorthand","year","trt","del_size"))%>%
+  mutate(del_start=as.Date(del_start,format="%m/%d/%y"),
+         del_end=as.Date(del_end,format="%m/%d/%y"))
+
+## get continuous responses
 cont.responses<-full.response.summary%>%
+  # drop tooley single pt that fell into a continuous response period
   filter(!Study_shorthand=="Tooley_DRE")
 nrow(cont.responses)
 
-anpp.filt%>%
+## check both
+anpp.w.info%>%
   distinct(Study_shorthand,year)
 
 cont.responses%>%
   distinct(Study_shorthand,year)
 
-anpp.cont.combined<-merge(anpp.filt,cont.responses,by=c("Study_shorthand","year","trt","del_size"),all=TRUE)%>%
-  filter(!is.na(Variable))
+## combine anpp w/ continuous info
+anpp.cont.combined<-merge(anpp.w.info,cont.responses,by=c("Study_shorthand","year","trt","timing","del_size","del_start","del_end"),all=TRUE)
+
 nrow(anpp.cont.combined)
 
 # view(anpp.cont.combined)
 
-#### graph variable magnitude vs. ANPP ####
-r2.labels<-anpp.cont.combined%>%
-  group_by(Variable,func)%>%
-  summarise(
-    r2 = summary(lm(npp_diff ~ diff_AUC_daily))$r.squared,
-    p  = summary(lm(npp_diff ~ diff_AUC_daily))$coefficients[2,4],
-    label = paste0("R² = ", round(r2, 2), ", p = ", round(p, 3)))
+```
 
-gr.dat<-anpp.cont.combined#%>%
-  # filter(func=="ANPP")
-  # filter(func=="BNPP")
-  # filter(func=="FORB")
-  # filter(func=="GRASS")
+### AUC ~ timing and size regressions 
+```{r anpp differences vs. climate -- exploratory}
+#### deluge size (x) vs. ANPP difference (y) w/ LTA difference (color ramp) ####
+gr.dat<-anpp.w.info%>%
+  filter(func %in% c("ANPP","BNPP"))
 
-r2.dat<-r2.labels#%>%
-  # filter(func=="ANPP")
-  # filter(func=="BNPP")
-  # filter(func=="FORB")
-  # filter(func=="GRASS")
+library(scico) # for pallet w/o light center
+shape_vals<-c("early"=22,"mid"=21,"late"=23,"fall"=24)
+
+size.anpp<-ggplot(gr.dat,aes(x = del_size, y = npp_diff)) +
+  geom_point(aes(fill=Difference.from.LTA.MAP, shape=timing),color="gray20",size=3) +
+  scale_shape_manual(values=shape_vals,
+                     breaks=c("early","mid","late","fall"),
+                     labels=c("early g.s.","mid g.s.","late g.s.","fall"),
+                     name="timing")+
+  scale_fill_scico(palette = "vik", midpoint = 0, name = "% difference from LTA MAP",direction=-1)+
+  geom_smooth(method = "lm", se = FALSE, aes(group = 1), color = "black", linetype = "dashed") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  facet_wrap(~func, scales = "free") +
+  ylab(expression(bold("Post-deluge increase in ANPP (g m"^-2*")")))+
+  xlab(expression(bold("Deluge Size (mm)")))+
+  theme_bw()
+size.anpp
+
+# ggsave("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/ESA Plots/size_anpp_LTA.pdf",size.anpp,width=9,height=4)
+
+#### LTA difference (x) vs. ANPP difference (y) w/ deluge size (color ramp) ####
+gr.dat<-anpp.w.info%>%
+  filter(func %in% c("ANPP","BNPP"))
+x.lab<-expression(bold("% difference from LTA MAP"))
+y.lab<-expression(bold("Post-deluge increase in productivity (g m"^-2*")"))
 
 pal<-brewer.pal(3, "Dark2")  # try Dark2, Set2, PRGn, BrBG
 
+shape_vals<-c("early"=22,"mid"=21,"late"=23,"fall"=24)
 
-ggplot(gr.dat,aes(x = diff_AUC_daily, y = npp_diff)) +
-  geom_point(aes(color = del_size, shape = timing), size = 3) +
-    scale_color_gradient2(low = pal[1], mid = pal[2], high = pal[3], 
+size.anpp<-ggplot(gr.dat,aes(x = Difference.from.LTA.MAP, y = npp_diff)) +
+  geom_point(aes(fill=del_size, shape=timing),color="gray20",size=3) +
+  scale_shape_manual(values=shape_vals,
+                     breaks=c("early","mid","late","fall"),
+                     labels=c("early g.s.","mid g.s.","late g.s.","fall"),
+                     name="timing")+
+  scale_fill_gradient2(low = pal[1], mid = pal[2], high = pal[3], 
                         midpoint = 60,
                         name = "Deluge size (mm)")+
   geom_smooth(method = "lm", se = FALSE, aes(group = 1), color = "black", linetype = "dashed") +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
-  geom_text(data = r2.dat, aes(label = label), x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5) +
-  facet_wrap(~Variable+func, scales = "free") +
-  ylab("ANPP Deluge-Control")+
-  xlab("Average Daily Magnitude Difference")+
+  facet_wrap(~func, scales = "free") +
+  ylab(y.lab)+
+  xlab(x.lab)+
   theme_bw()
+size.anpp
 
-#### graph variable magnitude vs. ANPP -- NO CCE ####
-r2.labels<-anpp.cont.combined%>%
-  # filter(!Study_shorthand=="CCE")%>%
-  group_by(Variable,func)%>%
-  summarise(
-    r2 = summary(lm(npp_diff ~ diff_AUC_daily))$r.squared,
-    p  = summary(lm(npp_diff ~ diff_AUC_daily))$coefficients[2,4],
-    label = paste0("R² = ", round(r2, 2), ", p = ", round(p, 3)))%>%
-  filter(p<0.05)
+# ggsave("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/ESA Plots/size_anpp_LTA.pdf",size.anpp,width=9,height=4)
+
+```
+
+```{r plot magnitude or legnth of VWC/GCC vs. ANPP difference -- in talk}
+#### graph variable magnitude or length vs. ANPP ####
+## set variables
+# ** always on -- ANPP
+func.name<-"ANPP"
+y.lab<-expression(bold("Post-deluge increase in ANPP (g m"^-2*")"))
+y.lims<-c(-5,40)
+
+# ** VWC vs. ANPP
+# var.name<-"VWC"
+
+# resp.type<-"mag_"
+# x.lab<-expression(bold("Average Daily VWC (%) Magnitude Difference"))
+
+# resp.type<-"length_"
+# x.lab<-expression(bold("Length of Elevated VWC Response"))
+
+# ** GCC vs. ANPP
+var.name<-"GCC"
+
+resp.type<-"mag_"
+x.lab<-expression(bold("Average Daily GCC Magnitude Difference"))
+
+# resp.type<-"length_"
+# x.lab<-expression(bold("Length of Elevated GCC Response"))
 
 gr.dat<-anpp.cont.combined%>%
-  # filter(!Study_shorthand=="CCE")%>%
-  filter(func=="ANPP")
-  # filter(func=="BNPP")
-  # filter(func=="FORB")
-  # filter(func=="GRASS")
+  filter(func==func.name)%>%
+  filter(Variable==var.name)%>%
+  # filter(!(Study_shorthand=="CCE" & trt=="DR_DEL"))%>%
+  # filter(!(Study_shorthand=="CCE"))%>%
+  mutate(gs_fall=case_when(
+    timing=="fall" ~ "fall",
+    TRUE ~ "gs"),
+    gs_fall=factor(gs_fall,levels=c("gs","fall")))
 
-r2.dat<-r2.labels%>%
-  filter(func=="ANPP")
-  # filter(func=="BNPP")
-  # filter(func=="FORB")
-  # filter(func=="GRASS")
+no.fall<-gr.dat%>%
+  filter(!gs_fall=="fall")
 
-pal<-brewer.pal(3, "Dark2")  # try Dark2, Set2, PRGn, BrBG
+gs.no.CCE<-no.fall%>%
+  filter(!Study_shorthand=="CCE")
 
-ggplot(gr.dat,aes(x=diff_AUC_daily, y=npp_diff)) +
-  geom_point(aes(color=del_size, shape=timing), size=3) +
-  scale_color_gradient2(low = pal[1], mid = pal[2], high = pal[3], 
-                        midpoint = 60,
-                        name = "Deluge size (mm)")+
-  geom_smooth(data=filter(gr.dat,Variable %in% c("GCC","SR")),method = "lm", se = FALSE, aes(group = 1), color = "black", linetype = "dashed") +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
-  geom_text(data = r2.dat, aes(label = label), x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5) +
-  facet_wrap(~Variable, scales = "free")+
-  ylab(expression(bold("ANPP Deluge-Control")))+
-  xlab(expression(bold("Average Daily Deluge Response over 28 day response period")))+
-  theme_bw()
+# set shapes
+shape_vals<-c("early"=22,"mid"=21,"late"=23,"fall"=24)
 
-#### **export magnitude vs. anpp** ####
+## plot
+var.mag.anpp<-ggplot(gr.dat,aes(y=npp_diff,
+                                x=diff_AUC_daily
+                                # x=new_resp_length
+                                ))+
+  # add 0 line
+  geom_hline(yintercept=0,linewidth=1,linetype="dashed",color="black")+
+# add and adjust points
+  geom_point(aes(fill=del_size,shape=timing),
+             # color=Study_shorthand
+             color="gray20",
+             size=4.25)+
+  scale_shape_manual(values=shape_vals,
+                     breaks=c("early","mid","late","fall"),
+                     labels=c("early g.s.","mid g.s.","late g.s.","fall"),
+                     name="timing")+
+  scale_fill_viridis_c(option = "viridis", name = "size (mm)",direction=-1)+
+  # add and adjust best fit lines
+  geom_smooth(data=gr.dat,method="lm",se=FALSE,aes(group=1),color="black",linetype="longdash",linewidth=1)+
+  geom_smooth(data=no.fall,method="lm",se=FALSE,aes(group=1),color="gray20",linetype="solid",linewidth=1)+
+  geom_smooth(data=gs.no.CCE,method="lm",se=FALSE,aes(group=1),color="gray20",linetype="dotted",linewidth=1)+
+  # adjust axes
+  ylab(y.lab)+
+  scale_y_continuous(limits=y.lims)+
+  xlab(x.lab)+
+  # theme and size for export
+  theme_bw(base_size=25)+
+  theme(strip.text=element_blank(),
+        axis.title=element_text(size=20),
+        legend.key.size=unit(1.5, "lines"),
+        legend.spacing.y=unit(0.35, "cm"),
+        legend.spacing.x=unit(0.15,"cm"),
+        legend.text=element_text(size=22),
+        legend.title=element_text(size=24),
+        legend.margin=margin(0, 0, 0, 0),
+        legend.box.spacing=unit(0.5,"cm"),
+        panel.border=element_rect(linewidth=1.2),
+        panel.grid.major=element_line(color="gray70",linewidth=0.3),
+        panel.grid.minor=element_line(color="gray80",linewidth=0.2)
+      )+
+  guides(fill = guide_colorbar(barwidth = 1.5, barheight = 8),
+         shape = guide_legend(override.aes = list(size = 5),
+                              label.vjust=1.2),spacing.y=5)+
+  force_panelsizes(rows=unit(5,"in"),
+                   cols=unit(6.5, "in"))
+var.mag.anpp
 
+#### **export plot magnitude or length vs. anpp** ####
+ggsave(paste0("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/ESA Plots/",var.name,"_",resp.type,"vs_anpp_diff.pdf"),var.mag.anpp,width=11,height=7)
+```
 
+```{r response lengths vs. normalized 20% threshold all vars -- in talk}
+#### assign response directions ####
+response.dat<-postdel_mag.length%>%
+  mutate(del_start=as.Date(del_start,format="%Y-%m-%d"),
+         del_end=as.Date(del_end,format="%Y-%m-%d"),
+         resp_period_end=as.Date(resp_period_end,format="%Y-%m-%d"),
+         date=as.Date(date,format="%Y-%m-%d"))%>%
+  arrange(Variable,Study_shorthand,year,trt,date)
 
-##### check response magnitudes vs. size #####
-resp_magnitude<-anpp.cont.combined%>%
+##### check response lengths #####
+resp_period.only<-response.dat%>%
+  # filter(resp_period=="del_resp")%>%
   # filter(timing=="fall")%>%
-  filter(!timing=="fall")%>%
-  mutate(Variable=factor(Variable,levels=c("VWC","GCC","SR")))%>%
-  mutate(Timing=factor(timing,levels=c("early","mid","late","fall"),labels=c("early g.s.","mid g.s.","late g.s.","fall")))
+  # filter(!timing=="fall")%>%
+  mutate(days_since=as.numeric(date)-as.numeric(del_start))%>%
+  mutate(Variable=factor(Variable,levels=c("VWC","GCC","SR")))
 
-pal<-brewer.pal(3, "Dark2")  # try Dark2, Set2, PRGn, BrBG
+x.lims<-c(1,100)
+# x.lims<-c(1,40)
 
-library(ggpmisc)
+shape_vals<-c("early"=22,"mid"=21,"late"=23,"fall"=24)
 
-magnitude.plots<-ggplot(dat=resp_magnitude,aes(del_size,diff_AUC_daily,shape=Timing,color=del_size))+
-  geom_point()+
-  scale_x_continuous(limits=c(15,125),n.breaks=7)+
-  scale_color_gradient2(low = pal[1], mid = pal[2], high = pal[3], 
-                        midpoint = 60,
-                        name = "Deluge size (mm)")+
-  xlab(expression(bold("Deluge size (mm)")))+
-  ylab(expression(atop(bold("Average Daily Deluge Response over 28-day response period"))))+
-  geom_smooth(method="lm",color="black",se=FALSE,linewidth=0.7,linetype="dashed",aes(group=1))+
-  # ggpmisc::stat_poly_eq(aes(label=paste(after_stat(p.value.label), 
-  #                                       after_stat(adj.rr.label),
-  #                                       after_stat(rr.label),
-  #                                       sep = "~~")),
-  #                       size=3,label.x="left",label.y="top")+
-  facet_wrap(~Variable,nrow=3,scales="free_y")+
-  # geom_vline(xintercept=60)+
+
+timing.plots<-ggplot(dat=resp_period.only,aes(days_since,rel.diff,shape=timing,fill=del_size))+
+  annotate("rect", xmin=-Inf, xmax=Inf, ymin=-0.2, ymax=0.2, fill="gray80", alpha=0.5)+
+  geom_point(color="gray20")+
+  scale_shape_manual(values=shape_vals,
+                     breaks=c("early","mid","late","fall"),
+                     labels=c("early g.s.","mid g.s.","late g.s.","fall"),
+                     name="timing")+  scale_x_continuous(limits=x.lims,n.breaks=7)+
+  scale_fill_viridis_c(option = "viridis", name = "size (mm)",direction=-1)+
+  xlab(expression(bold("Days Since Deluge")))+
+  ylab(expression(atop(bold("Increased Deluge Response"), "(Range-normalized % response)")))+
+  facet_wrap(~Variable,nrow=1)+
+  # geom_vline(xintercept=28)+
+  theme_bw(base_size=30)+
+  theme(strip.text=element_text(size=26),
+        axis.title=element_text(size=30),
+        legend.key.size=unit(1.5, "lines"),
+        legend.spacing.y=unit(0.35, "cm"),
+        legend.spacing.x=unit(0.15,"cm"),
+        legend.text=element_text(size=22),
+        legend.title=element_text(size=24),
+        legend.margin=margin(0, 0, 0, 0),
+        legend.box.spacing=unit(0.5,"cm"),
+        panel.border=element_rect(linewidth=1.2),
+        panel.grid.major=element_line(color="gray70",linewidth=0.3),
+        panel.grid.minor=element_line(color="gray80",linewidth=0.2)
+      )+
+  guides(fill = guide_colorbar(barwidth = 1.5, barheight = 8),
+         shape = guide_legend(override.aes = list(size = 5),
+                              label.vjust=1.2),spacing.y=5)+
+  force_panelsizes(rows=unit(5,"in"),
+                   cols=unit(6.5, "in"))
+
+timing.plots
+
+##### export timing vs. relative responses ####
+ggsave("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/ESA Plots/days_since_vs_mag_thresh_WFALL.pdf",timing.plots,width=26,height=10)
+
+#### ** Simple Example Response ** ####
+all.dates<-read.csv("deluge/data/all_daily_normalized_resp_percentages.csv")
+
+gr.dat<-all.dates%>%
+  mutate(del_start=as.Date(del_start,format="%Y-%m-%d"),
+         del_end=as.Date(del_end,format="%Y-%m-%d"),
+         resp_period_end=as.Date(resp_period_end,format="%Y-%m-%d"),
+         date=as.Date(date,format="%Y-%m-%d"))%>%
+  arrange(date)%>%
+  filter(Study_shorthand=="Post2021")%>%
+  filter(trt %in% c("DEL_20","DEL_120"))
+
+view(gr.dat)
+  
+x.lab<-expression(bold("Magnitude of Response (VWC %, GCC, SR)"))
+y.lab<-expression(bold("Date"))
+
+
+shape_vals<-c("early"=22,"mid"=21,"late"=23,"fall"=24)
+
+ex.plot<-ggplot(gr.dat,aes(x = as.Date(date,format="%Y-%m-%d"), y = trt.av, group = trt))+
+  geom_line(aes(color=trt))+
+  geom_point(aes(color=trt),size=3)+
+  scale_x_date()+
+  scale_color_manual(values=c("gray60","navyblue"))+
+  scale_linetype_manual(values=c("dashed","solid"))+
   theme_bw()
-magnitude.plots
 
-##### **export timing vs. relative responses** ####
-# ggsave()
+
+ex.plot
+
+
+# ggsave("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/ESA Plots/example_response.pdf",ex.plot,width=9,height=4)
 
 ```
 
-```{r timing graphing regressions}
-r2.labels<-anpp.cont.combined%>%
-  group_by(Variable,func)%>%
-  summarise(
-    r2 = summary(lm(npp_diff ~ diff_AUC_daily))$r.squared,
-    p  = summary(lm(npp_diff ~ diff_AUC_daily))$coefficients[2,4],
-    label = paste0("R² = ", round(r2, 2), ", p = ", round(p, 3)))
+```{r wide table to summarize}
+#### including fall ####
+### summarize continuous responses
+cont.summary<-cont.responses%>%
+  group_by(Variable)%>%
+  dplyr::summarise(
+    n.mag_studies=sum(!is.na(diff_AUC_daily)),
+    max.mag_AUC_daily=max(diff_AUC_daily,na.rm=TRUE),
+    min.mag_AUC_daily=min(diff_AUC_daily,na.rm=TRUE),
+    av.mag_AUC_daily=mean(diff_AUC_daily,na.rm=TRUE),
+    se.mag_AUC_daily=(sd(diff_AUC_daily,na.rm=TRUE)/sqrt(n.mag_studies)),
+    med.mag_AUC_daily=median(diff_AUC_daily,na.rm=TRUE),
+    n.length_studies=sum(!is.na(new_resp_length)),
+    max.length=max(new_resp_length,na.rm=TRUE),
+    min.length=min(new_resp_length,na.rm=TRUE),
+    av.length=mean(new_resp_length,na.rm=TRUE),
+    se.length=(sd(new_resp_length,na.rm=TRUE)/sqrt(n.length_studies)),
+    med.length=median(new_resp_length,na.rm=TRUE),
+    n.lag_studies=sum(!is.na(new_resp_lag_days)),
+    min.lag=min(new_resp_lag_days,na.rm=TRUE),
+    max.lag=max(new_resp_lag_days,na.rm=TRUE),
+    av.lag=mean(new_resp_lag_days,na.rm=TRUE),
+    se.lag=(sd(new_resp_lag_days,na.rm=TRUE)/sqrt(n.lag_studies)),
+    med.lag=median(new_resp_lag_days,na.rm=TRUE))
+# view(cont.summary)
 
-gr.dat<-anpp.cont.combined#%>%
-  # filter(func=="ANPP")
-  # filter(func=="BNPP")
-  # filter(func=="FORB")
-  # filter(func=="GRASS")
+## check the NA studies 
+NA.studies<-cont.responses%>%
+  filter(is.na(diff_AUC_daily)|is.na(new_resp_length)|is.na(new_resp_lag_days))%>%
+  select(Variable,Study_shorthand,year,trt,diff_AUC_daily,new_resp_length, new_resp_lag_days)
 
-r2.dat<-r2.labels#%>%
-  # filter(func=="ANPP")
-  # filter(func=="BNPP")
-  # filter(func=="FORB")
-  # filter(func=="GRASS")
+# view(NA.studies)
 
-######## NOTES: add correct color scale from earlier plots here & run again w/o CCE #########
-pal<-brewer.pal(3, "Dark2")  # try Dark2, Set2, PRGn, BrBG
+#### *** export table continuous responses summary *** ####
+# write.csv(cont.summary,file=file.path("deluge","data","R_exports","summary_of_continuous_responses.csv"),row.names=FALSE)
+# 
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "summary_of_continuous_responses.csv"), overwrite = T,
+#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 
+#### excluding fall ####
+### summarize continuous responses
+cont.summary.no.fall<-cont.responses%>%
+  filter(!Study_shorthand %in% c("Hajek2024","Tooley_DRE"))%>%
+  group_by(Variable)%>%
+  dplyr::summarise(
+    n.mag_studies=sum(!is.na(diff_AUC_daily)),
+    max.mag_AUC_daily=max(diff_AUC_daily,na.rm=TRUE),
+    min.mag_AUC_daily=min(diff_AUC_daily,na.rm=TRUE),
+    av.mag_AUC_daily=mean(diff_AUC_daily,na.rm=TRUE),
+    se.mag_AUC_daily=(sd(diff_AUC_daily,na.rm=TRUE)/sqrt(n.mag_studies)),
+    med.mag_AUC_daily=median(diff_AUC_daily,na.rm=TRUE),
+    n.length_studies=sum(!is.na(new_resp_length)),
+    max.length=max(new_resp_length,na.rm=TRUE),
+    min.length=min(new_resp_length,na.rm=TRUE),
+    av.length=mean(new_resp_length,na.rm=TRUE),
+    se.length=(sd(new_resp_length,na.rm=TRUE)/sqrt(n.length_studies)),
+    med.length=median(new_resp_length,na.rm=TRUE),
+    n.lag_studies=sum(!is.na(new_resp_lag_days)),
+    min.lag=min(new_resp_lag_days,na.rm=TRUE),
+    max.lag=max(new_resp_lag_days,na.rm=TRUE),
+    av.lag=mean(new_resp_lag_days,na.rm=TRUE),
+    se.lag=(sd(new_resp_lag_days,na.rm=TRUE)/sqrt(n.lag_studies)),
+    med.lag=median(new_resp_lag_days,na.rm=TRUE))
+# view(cont.summary.no.fall)
 
-ggplot(gr.dat,aes(x = new_resp_length, y = npp_diff)) +
-  geom_point(aes(color = del_size, shape = timing), size = 3) +
-  scale_color_gradient2(low = pal[1], mid = pal[2], high = pal[3], 
-                        midpoint = 60,
-                        name = "Deluge size (mm)")+
-  geom_smooth(method = "lm", se = FALSE, aes(group = 1), color = "black", linetype = "dashed") +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
-  geom_text(data = r2.dat, aes(label = label), x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5) +
-  facet_wrap(~Variable+func, scales = "free_y") +
-  ylab(expression(bold("Productivity Difference (g m"^-2*")")))+
-  xlab("Average Daily Deluge Response over 28-day response period")+
-  theme_bw()
+## check the NA studies 
+NA.studies.no.fall<-cont.responses%>%
+  filter(!Study_shorthand %in% c("Hajek2024","Tooley_DRE"))%>%
+  filter(is.na(diff_AUC_daily)|is.na(new_resp_length)|is.na(new_resp_lag_days))%>%
+  select(Variable,Study_shorthand,year,trt,diff_AUC_daily,new_resp_length, new_resp_lag_days)
+
+# view(NA.studies.no.fall)
+
+#### *** export table continuous responses summary *** ####
+# write.csv(cont.summary.no.fall,file=file.path("deluge","data","R_exports","summary_of_continuous_responses_GS-ONLY.csv"),row.names=FALSE)
+# 
+# googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "summary_of_continuous_responses_GS-ONLY.csv"), overwrite = T,
+#                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 
 ```
 
+```
+### widen all continuous responses to their own columns
+continuous.wide<-cont.responses%>%
+  select(c("Variable","Study_shorthand","year","trt","del_size","timing","del_start","del_end","resp_period_end","new_resp_length","new_resp_lag_days","diff_AUC","diff_AUC_daily"))%>%
+  pivot_wider(names_from=Variable,values_from=c("new_resp_length","new_resp_lag_days","diff_AUC","diff_AUC_daily"))%>%
+  mutate(del_start=as.Date(del_start),
+         del_end=as.Date(del_end),
+         resp_period_end=as.Date(resp_period_end))%>%
+  # filter(!(Study_shorthand=="CCE" & trt=="DR_DEL"))%>%
+  # filter(!(Study_shorthand=="CCE"))%>%
+  mutate(gs_fall=case_when(
+    timing=="fall" ~ "fall",
+    TRUE ~ "gs"),
+    gs_fall=factor(gs_fall,levels=c("gs","fall")))
+
+anpp.wide<-anpp.w.info%>%
+  select(-c("Study_trt"))%>%
+  pivot_wider(names_from=func,values_from=c("ctrl_anpp","ctrl_se","del_anpp","del_se","npp_diff","pue"))%>%
+  mutate(gs_fall=case_when(
+    timing=="fall"~"fall",
+    TRUE ~ "gs"),
+    gs_fall=factor(gs_fall,levels=c("gs","fall")))
+
+#### merge anpp and continuous response columns
+anpp.cont.wide<-merge(continuous.wide,anpp.wide,by=c("Study_shorthand","year","trt","del_size","timing","del_start","del_end","gs_fall"),all=TRUE)
+
+## check nrow (should drop a yr of Hajek x2 trts and Hoover x1, Tooley x2)
+del.info.trts<-del.info%>%
+  filter(!trt %in% c("CON","DR"))
+nrow(del.info.trts)
+nrow(anpp.cont.wide)
+
+#### summarize together ####
+summarize<-anpp.cont.wide%>%
+  group_by(Study_shorthand,year,trt,del_size,timing)%>%
+  dplyr::summarise(
+    n.studies.compared=sum(!is.na()),
+    
+  )
+
+
+```
+
+```{r plotting}
+
+# set shapes
+shape_vals<-c("early"=22,"mid"=21,"late"=23,"fall"=24)
+
+## plot
+var.mag.anpp<-ggplot(gr.dat,aes(y=npp_diff,
+                                # x=diff_AUC_daily
+                                x=new_resp_length
+                                ))+
+  # add 0 line
+  geom_hline(yintercept=0,linewidth=1,linetype="dashed",color="gray60")+
+# add and adjust points
+  geom_point(aes(fill=del_size,shape=timing),color="gray20",size=4.25)+
+  scale_shape_manual(values=shape_vals,
+                     breaks=c("early","mid","late","fall"),
+                     labels=c("early g.s.","mid g.s.","late g.s.","fall"),
+                     name="timing")+
+  scale_fill_viridis_c(option = "viridis", name = "size (mm)",direction=-1)+
+  # add and adjust best fit lines
+  geom_smooth(data=gr.dat,method="lm",se=FALSE,aes(group=1),color="black",linetype="longdash",linewidth=1)+
+  geom_smooth(data=subset(gr.dat,gs_fall=="gs"),method="lm",se=FALSE,aes(group=1),color="black",linetype="solid",linewidth=1)+
+  # adjust axes
+  ylab(y.lab)+
+  scale_y_continuous(limits=y.lims)+
+  xlab(x.lab)+
+  # theme and size for export
+  theme_bw(base_size=25)+
+  theme(strip.text=element_blank(),
+        axis.title=element_text(size=20),
+        legend.key.size=unit(1.5, "lines"),
+        legend.spacing.y=unit(0.35, "cm"),
+        legend.spacing.x=unit(0.15,"cm"),
+        legend.text=element_text(size=22),
+        legend.title=element_text(size=24),
+        legend.margin=margin(0, 0, 0, 0),
+        legend.box.spacing=unit(0.5,"cm"),
+        panel.border=element_rect(linewidth=1.2),
+        panel.grid.major=element_line(color="gray70",linewidth=0.3),
+        panel.grid.minor=element_line(color="gray80",linewidth=0.2)
+      )+
+  guides(fill = guide_colorbar(barwidth = 1.5, barheight = 8),
+         shape = guide_legend(override.aes = list(size = 5),
+                              label.vjust=1.2),spacing.y=5)+
+  force_panelsizes(rows=unit(5,"in"),
+                   cols=unit(6.5, "in"))
+var.mag.anpp
+
+#### **export magnitude or length vs. anpp** ####
+# ggsave(paste0("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/ESA Plots/",var.name,"_",resp.type,"vs_anpp_diff.pdf"),var.mag.anpp,width=11,height=7)
+
+```
 
 ### VPD maybe? vs. VWC?? vs. GCC?? vs. ANPP??
 How much does VWC increase depends on VPD

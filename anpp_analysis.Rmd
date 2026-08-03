@@ -104,7 +104,6 @@ trt.data <- read.csv(file = file.path("deluge", "treatmetn_LTA_Change.csv"))
 
 # summarize across func groups and determine a log response ratio
 ```{r}
-
 # create a new dataframe that determines if it is a control or a deluge treatment and then summarizes to the treatment year level, averaging across plots and then blocks where relevant
 str(anpp.2)
 anpp.3 <- anpp.2%>%
@@ -399,13 +398,114 @@ anpp.fig <- ggplot() +
   ylab("Functional Group") +
   xlab("ANPP Difference (g/m2)")
 
-ggsave("/Users/olhajek/Desktop/deluge_synthesis/Deluge_synthesis/deluge/figures/anpp_func_response.png", plot = anpp.fig, width = 9.5, height = 6, dpi = 600)
+# ggsave("/Users/olhajek/Desktop/deluge_synthesis/Deluge_synthesis/deluge/figures/anpp_func_response.png", plot = anpp.fig, width = 9.5, height = 6, dpi = 600)
 
-ggplot(data = combined, aes(del_ppt, pue)) +
-  geom_point(aes(color = Study_shorthand ))+
-  theme_bw()+
-  geom_smooth(method="lm")+
-  facet_wrap(~func)
+# ggplot(data = combined, aes(del_ppt, pue)) +
+#   geom_point(aes(color = Study_shorthand ))+
+#   theme_bw()+
+#   geom_smooth(method="lm")+
+#   facet_wrap(~func)
+```
+
+```{r Kathy duplicate for ESA talk formatting}
+bnpp_prep <- trts.b %>%
+  left_join(paired) %>%
+  dplyr::select(c(Study_shorthand, trt, del_bnpp, del_bnpp_se, ctrl_bnpp, ctrl_bnpp_se, 
+           pairing, year, Difference.from.LTA.MAP, Size, Deluge.Timing)) %>%
+  rename(del_anpp = del_bnpp, 
+         del_se = del_bnpp_se, 
+         ctrl_anpp = ctrl_bnpp, 
+         ctrl_se = ctrl_bnpp_se) %>%
+  mutate(func = "BNPP")
+
+glimpse(trt.data)
+trt.data.2 <- trt.data %>%
+  select(c(Study, Size, Year, trt))%>%
+  rename(Study_shorthand = Study, 
+         year = Year,
+         del_size = Size)%>%
+  mutate(year = as.character(year))%>%
+  merge(del.info,by=c("Study_shorthand","year","del_size","trt"),cols=c("timing"))
+
+glimpse(paired)  
+glimpse(bnpp_prep)  
+
+combined <- paired %>%
+  rbind(bnpp_prep) %>%
+  mutate(npp_diff = del_anpp-ctrl_anpp) %>%
+  left_join(trt.data.2)%>%
+  mutate(pue = npp_diff/Size, wyr_ppt = Size+ Difference.from.LTA.MAP)%>%
+  mutate(timing=case_when(
+    is.na(timing) ~ "fall",
+    TRUE ~ timing))
+
+combo_summary <- combined %>%
+  group_by(func)%>%
+  summarize(mean_npp = mean(npp_diff), se_npp = (sd(npp_diff))/(sqrt(n())))
+
+
+
+combo_summary$func <- factor(combo_summary$func, levels = c("BNPP", "FORB", "GRASS", "ANPP"))
+
+# shape_vals<-c("early"=22,"mid"=21,"late"=23,"fall"=24)
+
+shape_vals<-c("early"=15,"mid"=16,"late"=18,"fall"=17)
+
+
+anpp.fig <- ggplot() +
+  geom_jitter(data = combined, aes(x = npp_diff, y = func, color = Size, shape = timing), alpha = 0.7, size = 5.5, height = 0.1) +
+  geom_point(data = combo_summary, aes(x = mean_npp, y = func), 
+             size = 5) +
+  geom_errorbar(data = combo_summary, aes(x = mean_npp, y = func,
+                                     xmin = mean_npp - se_npp, 
+                                     xmax = mean_npp + se_npp),
+                width = 0.2) +
+  scale_shape_manual(values = shape_vals)+
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  scale_color_viridis_c(option = "viridis", direction = -1)+
+  # scale_fill_gradient2(low = pal[1], mid = pal[2], high = pal[3], 
+  #                       midpoint = 60,
+  #                       name = "Deluge size (mm)")+
+  theme_bw(base_size = 24) +
+  ylab(expression(bold("Functional Group"))) +
+  xlab(expression(bold("Post-deluge increase in ANPP (g m"^-2*")")))+
+  force_panelsizes(rows=unit(7,"in"),
+                   cols=unit(7,"in"))+
+  theme(strip.text=element_blank(),
+        axis.title=element_text(size=26),
+        axis.text.y=element_text(size=30,color="black"),
+        axis.text.x=element_text(size=28,color="black"),
+        legend.key.size=unit(1.5, "lines"),
+        legend.spacing.y=unit(0.35, "cm"),
+        legend.spacing.x=unit(0.15,"cm"),
+        legend.text=element_text(size=22),
+        legend.title=element_text(size=24),
+        legend.margin=margin(0, 0, 0, 0),
+        legend.box.spacing=unit(0.5,"cm"),
+        panel.border=element_rect(linewidth=1.2),
+        panel.grid.major=element_line(color="gray70",
+                                      linewidth=0.3),
+        panel.grid.minor=element_line(color="gray80",
+                                      linewidth=0.2))+
+  guides(fill = guide_colorbar(barwidth = 1.5, barheight = 8),
+         shape = guide_legend(override.aes = list(size = 5),
+                              label.vjust=1.2),spacing.y=5)+
+  force_panelsizes(rows=unit(5,"in"),
+                   cols=unit(6.5, "in"))
+
+anpp.fig
+
+# ggsave("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/ESA Plots/ANPP_scatterbars.pdf",width=12,height=12)
+
+# ggsave("/Users/olhajek/Desktop/deluge_synthesis/Deluge_synthesis/deluge/figures/anpp_func_response.png", plot = anpp.fig, width = 9.5, height = 6, dpi = 600)
+
+# ggplot(data = combined, aes(del_ppt, pue)) +
+#   geom_point(aes(color = Study_shorthand ))+
+#   theme_bw()+
+#   geom_smooth(method="lm")+
+#   facet_wrap(~func)
+
+
 
 
 ```

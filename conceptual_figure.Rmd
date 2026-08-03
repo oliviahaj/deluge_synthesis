@@ -48,9 +48,10 @@ drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/
 ## check id's of duplicate exported files
 googledrive::drive_reveal("precip_data_cleaned_trts.csv", "modified_time")%>%
   select(name,id,modified_time)
+######### save this id and update to read in correct data ##########
 
 ## read in by Drive ID instead of (duplicated) filename
-googledrive::drive_download(file = googledrive::as_id("1x0HQyVwv3iwIwPLK0OBYYfT3qoS3Tw-h"), 
+googledrive::drive_download(file = googledrive::as_id("1KyN-6TOaHWdHhzV93iivgjcUXBGjWjNA"), 
                               overwrite = T,
                               path = file.path("deluge", "precip_data", "precip_data_cleaned_trts.csv"))
 
@@ -375,11 +376,17 @@ plot<-ggplot(all.plotting,aes(x=year,y=ann_ppt,fill=combined_trts,pattern=combin
   )
 
 plot
-ggsave("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/all_trts_precip.png",plot,width=16,height=8.5)
+# ggsave("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/all_trts_precip.pdf",plot,width=16,height=8.5)
 
 
 ```
 
+
+```{r histogram sizes}
+glimpse(all.plotting)
+
+
+```
 
 
 
