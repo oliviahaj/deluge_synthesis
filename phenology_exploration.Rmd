@@ -1,0 +1,223 @@
+---
+title: "phenology_exploration"
+author: "Kathy Condon"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(knitr)
+library(tidyverse)
+library(dplyr)
+library(car)
+library(emmeans)
+library(multcomp)
+library(lmerTest)
+library(lme4)
+library(RColorBrewer)
+library(rstatix)
+library(tidyr)
+library(ggpubr)
+library(lubridate)
+library(ggtext)
+library(ggh4x)
+library(ggpattern)
+library(data.table)
+library(MuMIn)
+library(scales)
+library(performance)
+library(googledrive)
+```
+
+### Data setup
+```{r read data}
+# set local file directories if needed
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge","data"), showWarnings = F)
+dir.create(file.path("deluge","data","R_exports"))
+dir.create(file.path("deluge","figures"))
+
+# read in continuous files
+drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3?usp=drive_link"))
+
+cont.files<-c("GCC_filtered.csv","SR_filtered.csv","VWC_20cm_filtered.csv","deluge_characteristics_mergeable.csv","deluge_trt_keys.csv")
+
+## read in each file
+for (i in cont.files){
+  
+file.name<-drive.files %>% 
+  dplyr::filter(name == i) 
+
+# if-else, to throw error if file name is incorrect or error would otherwise stop loop
+if(nrow(file.name) == 1){
+  googledrive::drive_download(file = file.name$id, 
+                              overwrite = T,
+                              path = file.path("deluge", 'data', i))
+  
+} else{
+  message("File error - check name or if duplicated: ", i)
+  }
+}
+```
+
+```{r check data}
+# check all continuous files
+## read in
+GCC<-read.csv("deluge/data/GCC_filtered.csv")
+str(GCC) # 6103 -- OK
+
+## check each
+# GCC
+tapply(GCC$year, GCC$Study_shorthand, unique)
+
+GCC.dat<-GCC%>%
+  mutate(var=as.numeric(GCC))%>%
+  filter(!Study_shorthand=="Linabury_ChANGE")%>% # drop Mary 
+  filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
+
+GCC.na<-GCC.dat%>%
+  filter(is.na(var))
+# view(GCC.na)
+
+tapply(GCC.dat$year, GCC.dat$Study_shorthand, unique)
+unique(GCC.dat$Study_shorthand)
+
+# quiz viz of all #
+ggplot(GCC.dat, aes(date, var))+
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~Study_shorthand, scales="free") # OK- nothing looks too unreasonable
+```
+
+```{r list checked/fixed files}
+## also read in deluge characteristics data to merge with
+del.info<-read.csv("deluge/data/deluge_characteristics_mergeable.csv")
+# view(del.info)
+str(del.info)
+
+del.info<-del.info%>%
+  mutate(Study_trt=paste0(Study_shorthand,"_",trt))
+
+## and trt key by study/year
+del.trts<-read.csv("deluge/data/deluge_trt_keys.csv")%>%
+  rename(control_trt=con)
+str(del.trts)
+del.trts
+```
+#  ***************** RUN ALL ABOVE HERE B/F SKIPPING BELOW *****************
+
+### Assign response periods
+```{r response period assignment}
+#### Post -- 28 days response period in both studies -- using approximately when largest deluge VWC returned to ambient levels
+
+##### assign response periods ######
+##### from del.trts -- which already duplicates controls where needed for multiple deluge treatments
+### response period info 
+resp.assign<-del.trts%>%
+  # format dates for deluge start and end and create response period end date (+28 days after start)
+  mutate(del_start=as.Date(del_start,format="%m/%d/%y"),
+         del_end=as.Date(del_end,format="%m/%d/%y"),
+         resp_period_end=del_start+28)
+
+### add in deluge info from del.info
+trt.pairs<-resp.assign%>% # keep all from resp.assign
+  left_join(del.info%>%select(Study_shorthand,year,trt,del_size,timing), # add these columns from del.info file too
+            by=c("Study_shorthand","year","trt"))
+
+# ### also remove extra DRE trts
+trt.pairs<-trt.pairs %>%
+  filter(!(Study_shorthand == "Tooley_DRE" & trt %in% c("DR_DEL"))) # remove Tooley DR legacy plots, only keep the deluged plots w/ ambient history
+
+## stack treated and control rows together with their date windows (and duplicate controls where needed for multiple deluge trts)
+trt.lookup.long<-trt.pairs%>%
+  select(Study_shorthand,year,trt,control_trt,del_size,timing,del_start,del_end,resp_period_end)%>%
+  pivot_longer(cols=c(trt,control_trt),names_to="con_vs_trt",values_to="trt")
+
+head(trt.lookup.long)
+
+##### join response periods w/ GCC data #####
+GCC.dat.new<-GCC.dat%>%
+    mutate(date=as.Date(date,format="%Y-%m-%d"))%>%
+    left_join(trt.lookup.long,by=c("Study_shorthand","year","trt"),relationship="many-to-many")%>%
+    mutate(
+      resp_period=case_when(
+        date <= del_start ~ "pre_del",
+        date > del_start & date <= resp_period_end ~ "del_resp",
+        date > resp_period_end ~ "post_del",
+        TRUE ~ NA_character_)) # NA's for when there are not del_start/del_end/resp_period_end dates -- primarily for years w/ fall deluges that continue into next year (& next year will not have any deluge dates)
+}
+```
+
+### check data
+```{r combine paired trt-controls data}
+#### check data # of rows, trt combos, etc. ####
+# "new" dats should be slightly more n b/c some controls have duplicated to match all trts
+nrow(GCC.dat)
+nrow(GCC.dat.new)
+nrow(GCC.dat.new)/nrow(GCC.dat)
+
+# check how many pts per del period
+dat<-GCC.dat.new
+
+point.counts<-dat%>%
+  dplyr::count(Study_shorthand, year, trt, resp_period)%>% # how many data points are in eacy period
+  arrange(resp_period,Study_shorthand)
+point.counts
+
+# check any studies missing boundaries
+summary.dates<-dat%>%
+  group_by(Study_shorthand,year,trt)%>%
+  summarise(
+    del_start=first(del_start),
+    resp_period_end=first(resp_period_end),
+    first_pic=min(date,na.rm=TRUE),
+    last_pic=max(date,na.rm=TRUE),
+    peak_GCC=max(GCC,na.rm=TRUE),
+    peak_date=date[which.max(GCC)],
+    n=n())
+view(summary.dates)
+
+#### averages and plot checks ####
+GCC.avs<-dat%>%
+  group_by(Study_shorthand,Variable,year,date,trt,con_vs_trt,del_size,timing)%>%
+  dplyr::summarise(
+    n.plots.per.date=n(),
+    trt.day.av=mean(var,na.rm=TRUE),
+    trt.day.SE=(sd(var,na.rm=TRUE))/sqrt(n.plots.per.date))%>%
+  filter(!(Study_shorthand=="Tooley_DRE" & year == "2026"))
+# view(cont.avs)
+
+## try plotting to check data
+dat<-GCC.avs%>%
+  subset(Variable=="GCC")%>%
+  group_by(Study_shorthand,year)%>%
+  mutate(Study_trt=paste0(Study_shorthand,"_",trt),
+         trt_type=factor(con_vs_trt,levels=c("control_trt","trt"),labels=c("CON","DEL")))%>%
+  left_join(summary.dates%>%select(Study_shorthand,year,trt,peak_date),
+            by=c("Study_shorthand","year","trt"))
+
+peak.points<-dat%>%
+  filter(date==peak_date)
+
+### make the plot
+plot<-ggplot(dat,aes(x=date,y=trt.day.av,group=trt,linetype=trt_type,color=Study_trt)) +
+  geom_line()+
+  geom_point()+
+  geom_errorbar(aes(ymin=trt.day.av-trt.day.SE, ymax=trt.day.av+trt.day.SE), width=0.2)+
+  scale_x_date(date_labels="%b %d") +
+  labs(
+    x="Date",
+    y="VWC",
+    linetype="Treatment")+
+  geom_point(data=peak.points,aes(x=date,y=trt.day.av),
+             shape=8,size=3,color="black",inherit.aes=FALSE)+
+  theme_bw()+
+  theme(legend.position="right")+
+  force_panelsizes(rows = unit(2.25, "in"),
+               cols = unit(4.25, "in"))+
+  facet_wrap(~Study_shorthand + year,scales="free_x")
+
+plot
+```
