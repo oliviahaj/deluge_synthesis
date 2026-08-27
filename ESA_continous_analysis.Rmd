@@ -1099,11 +1099,11 @@ y.lims<-c(-5,40)
 # ** GCC vs. ANPP
 var.name<-"GCC"
 
-resp.type<-"mag_"
-x.lab<-expression(bold("Average Daily GCC Magnitude Difference"))
+# resp.type<-"mag_"
+# x.lab<-expression(bold("Average Daily GCC Magnitude Difference"))
 
-# resp.type<-"length_"
-# x.lab<-expression(bold("Length of Elevated GCC Response"))
+resp.type<-"length_"
+x.lab<-expression(bold("Length of Elevated GCC Response"))
 
 gr.dat<-anpp.cont.combined%>%
   filter(func==func.name)%>%
@@ -1126,8 +1126,8 @@ shape_vals<-c("early"=22,"mid"=21,"late"=23,"fall"=24)
 
 ## plot
 var.mag.anpp<-ggplot(gr.dat,aes(y=npp_diff,
-                                x=diff_AUC_daily
-                                # x=new_resp_length
+                                # x=diff_AUC_daily
+                                x=new_resp_length
                                 ))+
   # add 0 line
   geom_hline(yintercept=0,linewidth=1,linetype="dashed",color="black")+
@@ -1172,7 +1172,7 @@ var.mag.anpp<-ggplot(gr.dat,aes(y=npp_diff,
 var.mag.anpp
 
 #### **export plot magnitude or length vs. anpp** ####
-ggsave(paste0("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/ESA Plots/",var.name,"_",resp.type,"vs_anpp_diff.pdf"),var.mag.anpp,width=11,height=7)
+# ggsave(paste0("/Users/Kathy/Desktop/Deluge Synthesis/Local Plots/ESA Plots/",var.name,"_",resp.type,"vs_anpp_diff.pdf"),var.mag.anpp,width=11,height=7)
 ```
 
 ```{r response lengths vs. normalized 20% threshold all vars -- in talk}
