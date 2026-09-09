@@ -1,0 +1,148 @@
+---
+title: "Early_season_exploration"
+author: "OLH"
+date: "2026-07"
+output: 
+  bookdown::html_document2:
+    code_folding: hide
+    toc: TRUE
+    toc_depth: 4
+    toc_float: TRUE
+    collapsed: TRUE
+    theme: spacelab
+    fig_caption: TRUE
+    number_sections: FALSE
+---
+# Setup
+<style>h1 {font-size: 24pt; } h2 {font-size: 20pt; } h3 {font-size: 18pt; } h4 {font-size: 16pt; } h5 {font-size: 14pt; } h6 {font-size: 12pt; } </style> 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, dpi = 600, progress = FALSE, cache = FALSE, fig.width=5,  fig.height=3.5, fig.align="center")
+
+options(repos = c(CRAN = "http://cran.rstudio.com"))
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, googledrive, supportR, lubridate)
+
+`%!in%` = Negate(`%in%`)
+
+```
+
+# Create Folders on Desktop
+```{r}
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge", 'data'), showWarnings = F)
+dir.create(file.path("deluge", 'precip_data'), showWarnings = F)
+dir.create(file.path("deluge", 'data', 'R_exports'), showWarnings = F)
+```
+
+# Download ANPP data
+```{r}
+##### ANPP
+anpp <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3")) %>%
+  dplyr::filter(name == "ANPP_filtered.csv")
+
+# Did that work?
+anpp 
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = anpp$id, overwrite = T, type = "csv",
+                            path = file.path("deluge","data","R_exports", anpp$name))
+
+# Read in hoover ppt
+anpp <- read.csv(file = file.path("deluge","data","R_exports", "ANPP_filtered.csv")) %>%
+  filter(!(Study_shorthand == "Tooley_DRE" & str_detect(trt, "DR"))) %>%
+  filter(year %!in% c("July-Sept Regrowth 2021","July 2021")) %>%
+  mutate(year = as.integer(ifelse(year == "Sept 2021", "2021", year))) %>%
+  # create a new func group that's just grass, anpp, or total
+  mutate(func = case_when(
+    funct_group == "ANNUALS" ~ "GRASS", 
+    funct_group == "Annual" ~ "GRASS", 
+    funct_group == "Forb" ~ "FORB",
+    funct_group == "C3" ~ "GRASS",
+    funct_group == "C4" ~ "GRASS",
+    funct_group == "C4.ANNUALS" ~ "GRASS",
+    TRUE ~ funct_group
+  )) %>%
+  # summarize into grass, annual, or total
+  group_by(Study_shorthand, year, Block, plot, trt, func) %>%
+  summarize(anpp = sum(ANPP)) %>%
+  # get rid of woody
+  filter(func != "WOODY") %>%
+  filter(func != "Woody") %>%
+  ungroup()
+
+anpp.3 <- anpp%>%
+  mutate(del = as.numeric(ifelse(trt %in% c("CON", "DR"), "0", "1"))) %>%
+  group_by(Study_shorthand, year, Block, trt, func, del) %>%
+  summarize(mean_ANPP = mean(anpp), se_ANPP = (sd(anpp))/(sqrt(n())))
+
+block_summary <- anpp.3%>%
+  filter(!is.na(Block)) %>%
+  group_by(Study_shorthand, year, trt, func, del) %>%
+  summarise(mean_anpp = mean(mean_ANPP), se_ANPP = (sd(mean_ANPP))/(sqrt(n())), .groups = "drop") %>%
+  rename(mean_ANPP = "mean_anpp")
+
+anpp.4 <- anpp.3 %>%
+  filter(is.na(Block)) %>%
+  ungroup()%>%
+  select(-Block) %>%
+  rbind(block_summary)
+
+
+```
+
+# Download the precipitation data
+```{r}
+ppt <- googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/u/0/folders/18toIfC8jV7s8ZzAD0SV9CWL4SvGgn-RO")) %>%
+  dplyr::filter(name == "precip_data_cleaned_trts.csv")
+
+# Did that work?
+ppt
+
+# Download the excluded treatmetn file
+googledrive::drive_download(file = ppt$id, overwrite = T, type = "csv",
+                            path = file.path("deluge","precip_data", ppt$name))
+
+# Read in the PRS file
+ppt <- read.csv(file = file.path("deluge","precip_data", "precip_data_cleaned_trts.csv")) %>%
+  rename(trt = Our_trt)
+
+```
+
+# Join the data
+```{r}
+glimpse(ppt)
+glimpse(anpp)
+
+anpp.ppt <- left_join(anpp.4, ppt, by = c("Study_shorthand", "year", "trt")) %>%
+  # create an early season indicator
+  mutate(es = m4 + m5 + m6)
+
+```
+
+# graph 
+- maybe get rid of a few of the trts
+
+```{r}
+glimpse(anpp.ppt)
+ggplot(anpp.ppt, aes(es, mean_ANPP, shape = as.factor(del), color = Study_shorthand))+
+  geom_point()+
+  #geom_smooth(method = "lm") +
+  facet_wrap(~func)
+
+
+ggplot(anpp.ppt, aes(es, mean_ANPP, color = as.factor(del)))+
+  geom_point()+
+  geom_smooth(method = "lm") +
+  facet_wrap(~func)
+```
+
+
+
+
+
+
+
+
+
+
