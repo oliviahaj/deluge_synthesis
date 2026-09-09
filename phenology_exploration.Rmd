@@ -74,7 +74,7 @@ tapply(GCC$year, GCC$Study_shorthand, unique)
 
 GCC.dat<-GCC%>%
   mutate(var=as.numeric(GCC))%>%
-  filter(!Study_shorthand=="Linabury_ChANGE")%>% # drop Mary 
+  filter(!(Study_shorthand=="Linabury_ChANGE" & year == "2021"))%>% # drop Mary 
   filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
 
 GCC.na<-GCC.dat%>%
@@ -147,7 +147,7 @@ GCC.dat.new<-GCC.dat%>%
         date > del_start & date <= resp_period_end ~ "del_resp",
         date > resp_period_end ~ "post_del",
         TRUE ~ NA_character_)) # NA's for when there are not del_start/del_end/resp_period_end dates -- primarily for years w/ fall deluges that continue into next year (& next year will not have any deluge dates)
-}
+
 ```
 
 ### check data
@@ -221,3 +221,45 @@ plot<-ggplot(dat,aes(x=date,y=trt.day.av,group=trt,linetype=trt_type,color=Study
 
 plot
 ```
+
+```{r mid season 60mm-ish deluges only}
+mid.avs<-dat%>%
+  filter(Study_shorthand %in% c("CCE","Condon_SL","Hoover2022","Post2020","Post2021"))%>%
+  filter(trt %in% c("CON","CON_DEL","DR","DR_DEL","DEL_60","MID_DEL"))
+
+mid.avs.con<-mid.avs%>%
+  filter(trt_type=="CON")
+
+dat<-mid.avs
+# dat<-mid.avs.con
+
+del.dates<-data.frame(
+  Study_shorthand = c("CCE","Condon_SL","Hoover2022","Post2020","Post2021"),
+  year = c(2025,2021,2019,2017,2018),
+  del_start = c("7/9","7/15","7/16","7/11","7/10"),
+  del_end = c("7/10","7/16","7/16","7/13","7/11"),
+  con_peak = c("7/3","6/14","6/14","6/5","5/31"))
+
+plot<-ggplot(dat,aes(x=date,y=trt.day.av,group=trt,linetype=trt_type,color=Study_trt)) +
+  geom_vline(data=del.dates,aes(xintercept=as.Date(paste0(con_peak,"/",year),format = "%m/%d/%Y")),inherit.aes=FALSE,color="gray60",linetype="dashed")+
+  geom_vline(data=del.dates,aes(xintercept=as.Date(paste0(del_start,"/",year),format = "%m/%d/%Y")),inherit.aes=FALSE,color="darkblue")+
+  geom_line()+
+  geom_point()+
+  geom_errorbar(aes(ymin=trt.day.av-trt.day.SE, ymax=trt.day.av+trt.day.SE), width=0.2)+
+  scale_x_date(date_labels="%b %d") +
+  labs(
+    x="Date",
+    y="GCC",
+    linetype="Treatment")+
+  theme_bw()+
+  theme(legend.position="right")+
+  force_panelsizes(rows = unit(2.25, "in"),
+               cols = unit(4.25, "in"))+
+  facet_wrap(~Study_shorthand + year,scales="free_x")
+
+plot
+
+
+```
+
+
