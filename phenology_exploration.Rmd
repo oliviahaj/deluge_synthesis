@@ -230,17 +230,20 @@ mid.avs<-dat%>%
 mid.avs.con<-mid.avs%>%
   filter(trt_type=="CON")
 
-dat<-mid.avs
-# dat<-mid.avs.con
+gr_dat<-mid.avs
+# gr_dat<-mid.avs.con
 
 del.dates<-data.frame(
   Study_shorthand = c("CCE","Condon_SL","Hoover2022","Post2020","Post2021"),
   year = c(2025,2021,2019,2017,2018),
   del_start = c("7/9","7/15","7/16","7/11","7/10"),
   del_end = c("7/10","7/16","7/16","7/13","7/11"),
-  con_peak = c("7/3","6/14","6/14","6/5","5/31"))
+  con_peak = c("7/3","6/14","6/14","6/5","5/31"))%>%
+  mutate(deluge_date = as.Date(paste0(del_start,"/",year),format="%m/%d/%Y"),
+         peak_date = as.Date(paste0(con_peak,"/",year),format="%m/%d/%Y"))%>%
+  mutate(del_peak_diff = deluge_date - peak_date)
 
-plot<-ggplot(dat,aes(x=date,y=trt.day.av,group=trt,linetype=trt_type,color=Study_trt)) +
+plot<-ggplot(gr_dat,aes(x=date,y=trt.day.av,group=trt,linetype=trt_type,color=Study_trt)) +
   geom_vline(data=del.dates,aes(xintercept=as.Date(paste0(con_peak,"/",year),format = "%m/%d/%Y")),inherit.aes=FALSE,color="gray60",linetype="dashed")+
   geom_vline(data=del.dates,aes(xintercept=as.Date(paste0(del_start,"/",year),format = "%m/%d/%Y")),inherit.aes=FALSE,color="darkblue")+
   geom_line()+
