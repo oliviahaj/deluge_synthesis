@@ -1,0 +1,282 @@
+---
+title: "cont_data_analysis"
+author: "Kathy Condon"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(knitr)
+library(tidyverse)
+library(dplyr)
+library(car)
+library(emmeans)
+library(multcomp)
+library(lmerTest)
+library(lme4)
+library(RColorBrewer)
+library(rstatix)
+library(tidyr)
+library(ggpubr)
+library(lubridate)
+library(ggtext)
+library(ggh4x)
+library(ggpattern)
+library(data.table)
+library(MuMIn)
+library(scales)
+library(performance)
+library(googledrive)
+```
+
+```{r set file directories - local}
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge","data"), showWarnings = F)
+dir.create(file.path("deluge","data","R_exports"))
+dir.create(file.path("deluge","figures"))
+```
+
+```{r read in continuous files - choose 2 to refresh connection}
+drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3?usp=drive_link"))
+
+cont.files<-c("GCC_filtered.csv","SR_filtered.csv","VWC_20cm_filtered.csv","deluge_characteristics_mergeable.csv")
+
+## read in each file
+for (i in cont.files){
+  
+file.name<-drive.files %>% 
+  dplyr::filter(name == i) 
+
+# if-else, to throw error if file name is incorrect or error would otherwise stop loop
+if(nrow(file.name) == 1){
+  googledrive::drive_download(file = file.name$id, 
+                              overwrite = T,
+                              path = file.path("deluge", 'data', i))
+  
+} else{
+  message("File error - check name or if duplicated: ", i)
+  }
+}
+
+```
+
+```{r check files}
+GCC<-read.csv("deluge/data/GCC_filtered.csv")
+str(GCC)
+
+VWC<-read.csv("deluge/data/VWC_20cm_filtered.csv")
+str(VWC)
+
+SR<-read.csv("deluge/data/SR_filtered.csv")
+str(SR)
+
+#### set up deluge characteristics data to merge with
+del.info<-read.csv("deluge/data/deluge_characteristics_mergeable.csv")
+# view(del.info)
+
+#### TRYING TO FIX CHANGE DAYS SINCE DEL ####
+# # Get list of files with VWC in the filename ("_VWC" drops out the combined files so we're back to full list from everyone's raw data)
+# vwc_files <- list.files(path = file.path("deluge", "data"), 
+#                         pattern = "_VWC", 
+#                         full.names = TRUE)
+# 
+# 
+# # Read each file and assign to a dataframe named after the file
+# ## make list for file names
+# obj_names_list<-list()
+# ## run loop
+# for(f in vwc_files) {
+#   # Extract just the filename without extension as the object name
+#   obj_name <- tools::file_path_sans_ext(basename(f))
+#   
+#   # Read the CSV and assign to an object with that name
+#   assign(obj_name, read.csv(f))
+#   
+#   # Add to list
+#   obj_names_list<-c(obj_names_list,obj_name)
+# }
+# 
+# # Check how "plot" is formatted in each
+# str(CCE_VWC_Year2) # Plot
+# str(Condon_SLs_VWC) # Plot
+# str(Hajek2024_VWC) # Plot
+# str(Hoover2022_VWC_20cm) # Plot
+# str(Linabury_ChANGE_VWC) # plot + need trt too 
+# Linabury_ChANGE_VWC<-Linabury_ChANGE_VWC%>%
+#   mutate(Plot=paste0(plot,"_",treatment))
+# str(Post2020_VWC) # Plot
+# str(Post2021_VWC) # Plot
+# str(Tooley_DRE_VWC) # Plot
+# 
+# # Check unique Plot IDs in each dataframe
+# plot.ids <- data.frame()
+# 
+# for(name in obj_names_list) {
+#   if(name == "Hoover2022_CPER-DEX_VWC") next  # skip this one
+#   
+#   df <- get(name)
+#   temp <- data.frame(
+#     Study_shorthand = name,
+#     Plot = unique(df$Plot)
+#   )
+#   plot.ids <- rbind(plot_ids, temp)
+# }
+# 
+# view(plot.ids)
+
+```
+
+```{r fix rest of data for merge}
+# GCC
+tapply(GCC$year, GCC$Study_shorthand, unique)
+
+GCC.dat<-GCC%>%
+  mutate(var=as.numeric(GCC))%>%
+  # filter out Tooley 2023 data (before deluge addition)
+  filter(!(Study_shorthand=="Tooley_DRE" & year==2023))
+
+tapply(GCC.dat$year, GCC.dat$Study_shorthand, unique)
+unique(GCC.dat$Study_shorthand)
+
+# VWC
+VWC.dat<-VWC%>%
+  mutate(var=as.numeric(VWC))
+unique(VWC.dat$Study_shorthand)
+
+# SR
+SR.dat<-SR%>%
+  mutate(var=as.numeric(efflux))
+unique(SR.dat$Study_shorthand)
+
+# List together
+con.dat<-list(VWC.dat,GCC.dat,SR.dat)
+con.labels<-list("20 cm VWC (%)","GCC","Efflux")
+```
+
+```{r loop continuous data manipulations}
+# Make a for loop to clean and average data
+### set empty list for output of changed data
+con.trt.daily<-list() # for treatment-level only (averaged plots to just trt values per date)
+
+### cleanup data
+for (i in seq_along(con.dat)){
+  dat<-con.dat[[i]] # get first dataframe from list
+  y.lab<-con.labels[[i]] # get matching y-axis label from list of labels
+  
+  # make data adjustments
+  cleanup.dat<-dat%>%
+    mutate(new.date=as.Date(date,format="%Y-%m-%d"),
+         trt=factor(trt),
+         Study_shorthand=factor(Study_shorthand))%>%
+    mutate(mon=month(new.date))
+
+  # get DAILY AVERAGES (collapse plots down to one value per trt per day)
+  daily.avs<-cleanup.dat%>%
+    group_by(Study_shorthand,new.date,year,trt)%>%
+    filter(!is.na(var))%>%
+    dplyr::summarise(
+      plots.per.trt=n(),
+      av=mean(var),
+      sd=sd(var),
+      SE=sd/sqrt(plots.per.trt))%>%
+  mutate(trt_type=if_else(grepl("DEL",trt),"DEL","CON"))%>%
+  mutate(Study_trt=paste(Study_shorthand,trt,sep=": "))
+
+  # add in deluge characteristics info
+  merge.daily<-merge(daily.avs,del.info,by=c("Study_shorthand","year","trt"),all.x=TRUE)
+  head(merge.daily,5)
+  
+  merge.daily %>% filter(Study_shorthand == "Tooley_DRE") %>% distinct(year, new.date)
+  
+  # # check
+  # ## Before merge
+  # pre_merge_studies<-unique(daily.avs$Study_shorthand) # Tooley included
+  # ## After merge
+  # post_merge_studies<-unique(merge.daily$Study_shorthand) # Tooley still included
+  # ## check if anything was lost
+  # setdiff(pre_merge_studies, post_merge_studies)
+  
+  # cleanup dates again and split out Alex and Greg (paired controls DR with DR+DEL and CON with CON+DEL)
+  daily<-merge.daily%>%
+  mutate(doy.date=yday(new.date),
+         del_start=as.Date(del_start,format="%m/%d/%y"),
+         del_end=as.Date(del_end,format="%m/%d/%y"))%>%
+  mutate(background=case_when(
+    Study_shorthand %in% c("CCE","Tooley_DRE") & trt_type=="DEL" ~ str_remove(as.character(trt),"_DEL$"),
+    Study_shorthand %in% c("CCE","Tooley_DRE") & trt_type=="CON"~as.character(trt)))%>%
+    mutate(label=y.lab)
+  
+  # save
+  con.trt.daily[[i]]<-daily
+  
+  # # make columns side-by-side control (duplicated when needed) & deluge treatments
+  # ### split into control and deluge data frames
+  # con_daily<-daily%>%
+  #   filter(trt_type=="CON")%>%
+  #   select(Study_shorthand,year,new.date,CON_type=Study_trt,CON_n=plots.per.trt,CON_av=av,CON_sd=sd,CON_SE=SE,doy.date,background)
+  # 
+  # del_daily<-daily%>%
+  #   filter(trt_type=="DEL")%>%
+  #   select(Study_shorthand,year,new.date,DEL_type=Study_trt,DEL_n=plots.per.trt,DEL_av=av,DEL_sd=sd,DEL_SE=SE,del_start,del_end,doy.date,background)
+  # 
+  # # merge to make a WIDE DF 
+  # # (don't use pivot_wider b/c going to be hard to duplicate CON's correctly and check NA's, etc.)
+  # full.merge.wide<-merge(con_daily,del_daily,by=c("Study_shorthand","year","new.date","doy.date","background"),
+  #                        all=TRUE)
+  # print(head(full.merge.wide,5))
+  # 
+  # ### check missing dates that were not matched
+  # full.merge.check<-full.merge.wide%>%
+  #   filter(is.na(CON_av) | is.na(DEL_av))
+  # print(full.merge.check)
+  # # save check
+  # con.merge.check[[i]]<-full.merge.check
+  # 
+  # # CALCULATE WITHIN 20% 
+  # full.merge.wide<-full.merge.wide%>%
+  #   mutate(perc_diff=((DEL_av-CON_av)/CON_av)*100)%>%
+  #   mutate(del_response=case_when(
+  #     perc_diff < -20 ~ "NEGATIVE",
+  #     perc_diff >= 20 ~ "POSITIVE",
+  #     TRUE ~ "none"))%>%
+  #   mutate(label=y.lab)%>%
+  #   select(Study_shorthand,year,new.date,del_start,del_end,
+  #          doy.date,CON_type,DEL_type,CON_n,DEL_n,CON_av,DEL_av,perc_diff,del_response,label)
+  # 
+  # # save merged data
+  # con.merge[[i]]<-full.merge.wide
+  
+}
+
+# # check dataframe first few lines look correct (use label column to see what var)
+# lapply(con.merge,head,5)
+# lapply(con.av.adj,head,5)
+# 
+# # check any missing dates that did not match in the CON + DEL merge
+# con.merge.check
+# 
+# 
+# # bind all rows and export
+# ### bind rows of averaged data (one measure per date)
+# response.periods<-bind_rows(con.merge)
+# 
+# # Export locally
+# # write.csv(x = response.periods, file = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_wide-response-periods_bydate.csv"))
+# # 
+# # # Upload to Drive
+# # googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_wide-response-periods_bydate.csv"), overwrite = T,
+# #                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+# 
+# # bind rows
+# daily.avs<-bind_rows(con.av.adj)
+# 
+# # Export locally
+# # write.csv(x = daily.avs, file = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_long-dailyavs.csv"))
+# # 
+# # # Upload to Drive
+# # googledrive::drive_upload(media = file.path("deluge", "data", "R_exports", "VWC_GCC_SR_long-dailyavs.csv"), overwrite = T,
+# #                         path = googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+```
+
