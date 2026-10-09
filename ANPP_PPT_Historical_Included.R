@@ -221,7 +221,7 @@ glimpse(hist)
 hist.exp <- rbind(exp, hist)
 
 ggplot(hist.exp, aes(ann_ppt, mean_ANPP, color = del_size,shape = data))+
-  geom_point()+
+  geom_point(size = 2)+
   scale_color_viridis_c(option = "mako", direction = -1, end = 0.9,
                         limits = c(NA, quantile(anpp.ppt$total_precip, 0.95, na.rm = TRUE)),
                         oob = scales::squish) +
