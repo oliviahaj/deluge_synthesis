@@ -46,7 +46,8 @@ ppt.del <- ppt %>%
             total_precip=sum(rel_events))%>%
   filter(total_precip>0)%>%
   #filter(total_precip>20) %>%
-  mutate(month = month(end_date), year = year(end_date))
+  mutate(month = month(end_date), year2 = year(end_date), year = ifelse(month>9, year2 + 1, year2)) %>%
+  filter(year < 2021)
 
 map <- ppt %>%
   mutate(year = year(Date)) %>%
@@ -64,10 +65,72 @@ mean(ppt.sum$total_precip)
 median(ppt.sum$total_precip)
 
 # Visualzie
-ggplot(ppt.sum, aes(ann.ppt, total_precip, color = year))+
-  geom_point()+
+library(ggpubr)
+fit <- summary(lm(total_precip ~ ann.ppt, data = ppt.sum))
+lab <- sprintf("R² = %.2f, p = %.3g", fit$r.squared, coef(fit)[2, 4])
+
+ggplot(ppt.sum, aes(ann.ppt, total_precip)) +
+  geom_point() +
+  geom_smooth(method = "lm")+
+  annotate("text", x = -Inf, y = Inf, label = lab, hjust = -0.1, vjust = 1.5, size = 6) +
+  theme_bw(base_size = 16) +
+  ylab("Max Event Size (mm)")+
+  xlab("WaterYear Precipitation (mm)")+
+  theme(panel.grid = element_blank())
+
+
+del.num <- ppt.del %>%
+  # note that at 60, get a nice distribution too
+  filter(total_precip > 20) %>%
+  group_by(year) %>%
+  dplyr::count()
+
+num <- ppt.sum %>%
+  left_join(del.num) %>%
+  mutate(n = replace_na(n, 0))
+
+ggplot(num, aes(ann.ppt, n, color = total_precip)) +
+  geom_point(size = 3) +
+  scale_color_viridis_c(option = "mako", direction = -1, end = 0.9,
+                        limits = c(NA, quantile(num$total_precip, 0.95, na.rm = TRUE)),
+                        oob = scales::squish) +
+  theme_bw(base_size = 16) +
+  ylab("No. events over 20 mm")+
+  xlab("WaterYear Precipitation (mm)")+
+  theme(panel.grid = element_blank())
+
+# what proportion of a years rain is in deluge - we're going to consider anythign over 20 here??
+del.ppt <- ppt.del %>%
+  filter(total_precip > 20) %>%
+  group_by(year) %>%
+  summarize(del_ppt = sum(total_precip), n_events = n())
+
+deluge.precip <- ppt.sum %>%
+  left_join(del.ppt) %>%
+  mutate(del_ppt = replace_na(del_ppt, 0), n_events = replace_na(n_events, 0)) %>%
+  mutate(prop_del = ifelse(del_ppt>0, del_ppt/ann.ppt,0), ppt_wo_del = ann.ppt - del_ppt)
+
+ggplot(deluge.precip, aes(year, ppt_wo_del))+
+  geom_point(size = 3)+
   theme_bw()
 
+ggplot(deluge.precip, aes(year, ann.ppt))+
+  geom_point(size = 3)+
+  theme_bw()
+
+ggplot(deluge.precip, aes(year, del_ppt))+
+  geom_point(size = 3)+
+  theme_bw()
+
+ggplot(deluge.precip, aes(ann.ppt, ppt_wo_del))+
+  geom_point() +
+  theme_bw()
+
+ggplot(deluge.precip, aes(ann.ppt, prop_del))+
+  geom_point(size = 4) +
+  ylab("Prop of rain falling in rain event > 20mm")+
+  xlab("Water Year ppt (mm)")+
+  theme_bw(base_size=15)
 
 ######################################################
 ##########ANPP########################################
@@ -220,8 +283,9 @@ glimpse(hist)
 
 hist.exp <- rbind(exp, hist)
 
-ggplot(hist.exp, aes(ann_ppt, mean_ANPP, color = del_size,shape = data))+
-  geom_point(size = 2)+
+ggplot(hist.exp, aes(ann_ppt, mean_ANPP, shape = data))+
+  geom_point(aes(color = del_size), size = 3)+
+  #geom_smooth(method = "lm") +
   scale_color_viridis_c(option = "mako", direction = -1, end = 0.9,
                         limits = c(NA, quantile(anpp.ppt$total_precip, 0.95, na.rm = TRUE)),
                         oob = scales::squish) +
@@ -229,9 +293,11 @@ ggplot(hist.exp, aes(ann_ppt, mean_ANPP, color = del_size,shape = data))+
 
 
 # To do
-# Need to make historical water year instead.....
 # Fix Greg's ppt or confirm that it is correct...
 # maybe also just loook at grass, i don't think that changes things too much. greg's don't also seem to have the deluge
-
-
+# would love to get 2021 - 2025 in here too b/c right now just 1983 - 2020
+# control doens't have the deluge treatments - maybe just filter these out for now
+# color by deluge - how many in a year? start with maybe like 30 or 40 mm
+# how much of rain falls as a deluge? could look at subtracting out teh deluge amount/proportion that falls as a deluge
+# annual precip and deluge size correlation figure
 
