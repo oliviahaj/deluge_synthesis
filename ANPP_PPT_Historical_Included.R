@@ -99,6 +99,7 @@ ggplot(num, aes(ann.ppt, n, color = total_precip)) +
   xlab("WaterYear Precipitation (mm)")+
   theme(panel.grid = element_blank())
 
+
 # what proportion of a years rain is in deluge - we're going to consider anythign over 20 here??
 del.ppt <- ppt.del %>%
   filter(total_precip > 20) %>%
@@ -167,6 +168,29 @@ ggplot(anpp.ppt, aes(ann.ppt, anpp, color = total_precip))+
                         oob = scales::squish) +
   theme_bw()
 
+
+library(car)
+fit <- lm(anpp ~ ann.ppt, data = anpp.ppt) |> summary()
+
+lab <- sprintf("R² = %.2f\np = %s\nslope = %.3f",
+               fit$r.squared,
+               format.pval(fit$coefficients[2, 4], digits = 2, eps = 0.001),
+               fit$coefficients[2, 1])
+
+ggplot(anpp.ppt, aes(ann.ppt, anpp)) +
+  geom_point(aes(color = total_precip)) +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  annotate("text", x = -Inf, y = Inf, label = lab,
+           hjust = -0.1, vjust = 1.2, size = 4.5) +
+  scale_color_viridis_c(option = "mako", direction = -1, end = 0.9,
+                        limits = c(NA, quantile(anpp.ppt$total_precip, 0.95, na.rm = TRUE)),
+                        oob = scales::squish,
+                        name = "Max Event Size") +
+  theme_bw(base_size = 15)+
+  xlab("Water-Year PPT (mm)")+
+  ylab("ANPP")+
+  theme(panel.grid = element_blank())+
+  ggtitle("Historical ANPP-PPT Data")
 
 ######################################################
 ##### Experimental ANPP and PPT #########################
@@ -262,6 +286,80 @@ trt <- read.csv(file = file.path("deluge","data","R_exports", "deluge_characteri
 glimpse(trt)
 anpp.ppt.ex2 <- left_join(anpp.ppt.ex, trt)
 
+exp <- anpp.ppt.ex2 %>%
+  filter(func == "ANPP") %>%
+  select(c(Study_shorthand, year, trt, mean_ANPP, ann_ppt, del_size, month)) %>%
+  mutate(data = "EXP") %>%
+  mutate(del_size = case_when(
+    near(ann_ppt, 402.9719, tol = 1e-3) ~ 59.9,
+    near(ann_ppt, 425.3228, tol = 1e-3) ~ 105.5,
+    TRUE ~ del_size
+  ))
+
+# Graph experimental data only
+glimpse(exp)
+
+fit <- lm(mean_ANPP ~ ann_ppt, data = exp) |> summary()
+
+lab <- sprintf("R² = %.2f\np = %s\nslope = %.3f",
+               fit$r.squared,
+               format.pval(fit$coefficients[2, 4], digits = 2, eps = 0.001),
+               fit$coefficients[2, 1])
+
+ggplot(exp, aes(ann_ppt, mean_ANPP)) +
+  geom_point(aes(color = del_size)) +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  annotate("text", x = -Inf, y = Inf, label = lab,
+           hjust = -0.1, vjust = 1.2, size = 4.5) +
+  scale_color_viridis_c(option = "mako", direction = -1, end = 0.9,
+                        name = "Deluge Size") +
+  theme_bw(base_size = 15)+
+  xlab("Water-Year PPT (mm)")+
+  ylab("ANPP")+
+  theme(panel.grid = element_blank())+
+  ggtitle("Experimental ANPP-PPT Data")
+
+fite <- lm(mean_ANPP ~ ann_ppt, data =subset(exp,exp$del_size > 0)) |> summary()
+
+labe <- sprintf("R² = %.2f\np = %s\nslope = %.3f",
+                fite$r.squared,
+                format.pval(fite$coefficients[2, 4], digits = 2, eps = 0.001),
+                fite$coefficients[2, 1])
+
+ggplot(data = subset(exp,exp$del_size > 0), aes(ann_ppt, mean_ANPP)) +
+  geom_point(aes(color = del_size)) +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  annotate("text", x = -Inf, y = Inf, label = labe,
+           hjust = -0.1, vjust = 1.2, size = 4.5) +
+  scale_color_viridis_c(option = "mako", direction = -1, end = 0.9,
+                        name = "Deluge Size") +
+  theme_bw(base_size = 15)+
+  xlab("Water-Year PPT (mm)")+
+  ylab("ANPP")+
+  theme(panel.grid = element_blank())+
+  ggtitle("Deluges ANPP-PPT Data")
+
+
+fitc <- lm(mean_ANPP ~ ann_ppt, data = subset(exp,exp$del_size == 0)) |> summary()
+
+labc <- sprintf("R² = %.2f\np = %s\nslope = %.3f",
+               fitc$r.squared,
+               format.pval(fitc$coefficients[2, 4], digits = 2, eps = 0.001),
+               fitc$coefficients[2, 1])
+
+ggplot(data = subset(exp,exp$del_size == 0), aes(ann_ppt, mean_ANPP)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  annotate("text", x = -Inf, y = Inf, label = labc,
+           hjust = -0.1, vjust = 1.2, size = 4.5) +
+  # scale_color_viridis_c(option = "mako", direction = -1, end = 0.9,
+  #                       name = "Deluge Size") +
+  theme_bw(base_size = 15)+
+  xlab("Water-Year PPT (mm)")+
+  ylab("ANPP")+
+  theme(panel.grid = element_blank())+
+  ggtitle("Control ANPP-PPT Data")
+
 
 ######################################################
 ##### Join hist and exp data #########################
@@ -272,10 +370,16 @@ glimpse(anpp.ppt.ex2)
 exp <- anpp.ppt.ex2 %>%
   filter(func == "ANPP") %>%
   select(c(Study_shorthand, year, trt, mean_ANPP, ann_ppt, del_size, month)) %>%
-  mutate(data = "EXP")
+  mutate(data = "EXP") %>%
+  mutate(del_size = case_when(
+    near(ann_ppt, 402.9719, tol = 1e-3) ~ 59.9,
+    near(ann_ppt, 425.3228, tol = 1e-3) ~ 105.5,
+    TRUE ~ del_size
+  )) %>%
+  filter(del_size > 0)
 
 hist <- anpp.ppt %>%
-  select(-c(group, n.days, start_date, end_date)) %>%
+  select(-c(group, n.days, start_date, end_date, year2)) %>%
   rename(mean_ANPP = anpp, del_size = total_precip, ann_ppt = ann.ppt) %>%
   mutate(Study_shorthand = "LTNPP", trt = "HIST", data = "HIST")
 glimpse(exp)
@@ -284,13 +388,15 @@ glimpse(hist)
 hist.exp <- rbind(exp, hist)
 
 ggplot(hist.exp, aes(ann_ppt, mean_ANPP, shape = data))+
+  geom_smooth(aes(linetype = data), color = "grey", method = "lm", se = F) +
   geom_point(aes(color = del_size), size = 3)+
-  #geom_smooth(method = "lm") +
   scale_color_viridis_c(option = "mako", direction = -1, end = 0.9,
                         limits = c(NA, quantile(anpp.ppt$total_precip, 0.95, na.rm = TRUE)),
                         oob = scales::squish) +
-  theme_bw()
-
+  theme_bw(base_size = 16)+
+  theme(panel.grid = element_blank()) +
+  xlab("Water-Year PPT (mm)")+
+  ylab("ANPP")
 
 # To do
 # Fix Greg's ppt or confirm that it is correct...
