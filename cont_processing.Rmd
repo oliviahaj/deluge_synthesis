@@ -1,0 +1,665 @@
+---
+title: "continuous_response_calcs"
+author: "Kathy Condon"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+Purpose: take full plot-level data from **"VAR_filtered.csv"** files into daily averages (at the treatment instead of plot level -- **"continuous_long_dailyavs.csv"**) and calculates relative 20% thresholds, response lengths (days > threshold) and response AUC's (magnitude and legnth together) exported as **"continuous_response_calcs.csv"** 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(knitr)
+library(tidyverse)
+library(dplyr)
+library(car)
+library(emmeans)
+library(multcomp)
+library(lmerTest)
+library(lme4)
+library(RColorBrewer)
+library(rstatix)
+library(tidyr)
+library(ggpubr)
+library(lubridate)
+library(ggtext)
+library(ggh4x)
+library(ggpattern)
+library(data.table)
+library(MuMIn)
+library(scales)
+library(performance)
+library(googledrive)
+```
+
+#### 1. Set Up Data Info *******************************************************
+```{r read in filtered data}
+# set local file directories if needed
+dir.create(file.path("deluge"), showWarnings = F)
+dir.create(file.path("deluge","data"), showWarnings = F)
+dir.create(file.path("deluge","data","R_exports"))
+dir.create(file.path("deluge","figures"))
+
+# read in continuous files
+drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3?usp=drive_link"))
+
+cont.files<-c("GCC_filtered.csv","SR_filtered.csv","VWC_20cm_filtered.csv","deluge_characteristics_mergeable.csv","deluge_trt_keys.csv")
+
+## read in each file
+for (i in cont.files){
+  
+file.name<-drive.files %>% 
+  dplyr::filter(name == i) 
+
+# if-else, to throw error if file name is incorrect or error would otherwise stop loop
+if(nrow(file.name) == 1){
+  googledrive::drive_download(file = file.name$id, 
+                              overwrite = T,
+                              path = file.path("deluge", 'data', i))
+  
+} else{
+  message("File error - check name or if duplicated: ", i)
+  }
+}
+
+```
+
+```{r data checks and filtering}
+# check all continuous files
+## read in
+GCC<-read.csv("deluge/data/GCC_filtered.csv")
+str(GCC) # 6103 -- OK
+
+VWC<-read.csv("deluge/data/VWC_20cm_filtered.csv")
+str(VWC) # 6323 -- OK
+
+SR<-read.csv("deluge/data/SR_filtered.csv")
+str(SR) # 3714 -- OK
+
+## check each
+# GCC
+tapply(GCC$year, GCC$Study_shorthand, unique)
+
+GCC.dat<-GCC%>%
+  mutate(var=as.numeric(GCC))%>%
+  filter(!Study_shorthand=="Linabury_ChANGE") #%>% # drop Mary
+  # filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
+
+GCC.na<-GCC.dat%>%
+  filter(is.na(var))
+# view(GCC.na)
+
+tapply(GCC.dat$year, GCC.dat$Study_shorthand, unique)
+unique(GCC.dat$Study_shorthand)
+
+# quiz viz of all #
+ggplot(GCC.dat, aes(date, var))+
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~Study_shorthand, scales="free") # OK- nothing looks too unreasonable
+
+# VWC
+tapply(VWC$year, VWC$Study_shorthand, unique)
+
+VWC.dat<-VWC%>%
+  mutate(var=as.numeric(VWC))%>%
+  filter(!Study_shorthand=="Linabury_ChANGE") #%>% # drop Mary 
+  # filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
+
+VWC.na<-VWC.dat%>%
+  filter(is.na(var))
+# view(VWC.na)
+
+# quiz viz of all #
+ggplot(VWC.dat, aes(date, var))+
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~Study_shorthand, scales="free") # OK- nothing looks too unreasonable
+
+# check 
+tapply(VWC$year, VWC$Study_shorthand, unique)
+
+# SR
+tapply(SR$year, SR$Study_shorthand, unique)
+
+SR.dat<-SR%>%
+  mutate(var=as.numeric(efflux))# %>%
+  # filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
+
+SR.na<-SR.dat%>%
+  filter(is.na(var))
+# view(SR.na)
+
+# quiz viz of all #
+ggplot(SR.dat, aes(date, var))+
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~Study_shorthand, scales="free") # OK- nothing looks too unreasonable
+
+# check
+tapply(SR$year, SR$Study_shorthand, unique)
+```
+
+```{r start file linking - setup del info to add in to data}
+# list continuous data files for looping (next chunk)
+con.dat<-list(VWC=VWC.dat,GCC=GCC.dat,SR=SR.dat)
+con.labels<-list("20 cm VWC (%)","GCC","Efflux")
+
+# add deluge characteristics data to merge with
+del.info<-read.csv("deluge/data/deluge_characteristics_mergeable.csv")%>%
+  # create Study_trt to match what's in the continuous data files
+  mutate(Study_trt=paste0(Study_shorthand,"_",trt))
+str(del.info)
+
+# add treatment key that links each trt to it's control 
+del.trts<-read.csv("deluge/data/deluge_trt_keys.csv")%>%
+  # format start and end dates to as.Date
+  mutate(del_start=as.Date(del_start,format="%m/%d/%y"),
+         del_end=as.Date(del_end,format="%m/%d/%y"))%>%
+  # add column that gives end of 28-day standard response period
+  mutate(resp_28day=del_start+28)%>%
+  # join in deluge characteristics from del.info
+  left_join(del.info %>% select(Study_shorthand,year,trt,del_size,timing),
+            by=c("Study_shorthand","year","trt"))%>%
+  # also save dates in DOY format
+  mutate(del_start_doy=yday(del_start),
+         del_end_doy=yday(del_end),
+         resp_28day_doy=yday(resp_28day))
+
+```
+
+```{r complete file linking - add deluge dates to daily continuous data}
+# check data lists
+str(con.dat)
+
+# pivot del.trts to duplicate controls where needed for multiple deluge treatment
+del.trts.long<-del.trts%>%
+  pivot_longer(cols=c(trt,con),names_to="con_vs_trt",values_to="trt")
+
+  
+# loop through each continuous data file to join with del.trts information (in previous chunk)
+con.dat.merge<-list()
+for (i in seq_along(con.dat)){
+  con.dat[[i]]<-con.dat[[i]]%>%
+    mutate(date=as.Date(date,format="%Y-%m-%d"))%>%
+    left_join(del.trts.long,by=c("Study_shorthand","year","trt"),
+              relationship="many-to-many")
+  
+  # %>% # many-to-many allows duplicates from del.trts
+  #   mutate(pre_post_del=case_when(
+  #     date <= del_start ~ "pre_del",
+  #     date > del_start ~ "post_del"))
+}
+
+# check data - new should have some extra rows for duplicated controls where multiple trts share the same control (like Post deluges of multiple sizes all comparing to a single control trt)
+VWC.dat.new<-con.dat$VWC
+nrow(VWC.dat)
+nrow(VWC.dat.new)
+
+GCC.dat.new<-con.dat$GCC
+nrow(GCC.dat)
+nrow(GCC.dat.new)
+
+SR.dat.new<-con.dat$SR
+nrow(SR.dat)
+nrow(SR.dat.new)
+
+# bind all together
+str(VWC.dat.new)
+str(GCC.dat.new)
+str(SR.dat.new)
+
+VWC.tomerge<-VWC.dat.new%>%
+  select(-VWC)
+
+GCC.tomerge<-GCC.dat.new%>%
+  select(-GCC)
+
+SR.tomerge<-SR.dat.new%>%
+  select(-efflux)%>%
+  mutate(plot=as.character(plot))
+
+all.continuous<-bind_rows(VWC.tomerge,GCC.tomerge,SR.tomerge)%>%
+  mutate(date=as.Date(date,format="%Y-%m-%d"),
+         date=if_else(as.numeric(format(date,"%Y"))<100,
+                      date+years(2000),
+                      date))
+
+str(all.continuous)
+
+#### averages: plot-level -> treatment-level daily averages ####
+# (controls are still duplicated where one control serves multiple deluge trts -- del_size/timing/del_start identify which deluge each copy goes with)
+cont.avs<-all.continuous%>%
+  group_by(Study_shorthand,Variable,year,date,trt,con_vs_trt,del_size,timing,del_start,del_end,resp_28day)%>%
+  dplyr::summarise(
+    n.plots.per.date=sum(!is.na(var)),
+    trt.day.av=mean(var,na.rm=TRUE),
+    trt.day.SE=(sd(var,na.rm=TRUE))/sqrt(n.plots.per.date),
+    .groups="drop")%>%
+  filter(!is.na(trt.day.av))%>%
+  filter(!(Study_shorthand=="Tooley_DRE" & year == 2026))
+# view(cont.avs)
+
+#### export - continuous_long_dailyavs.csv - daily data still but with all additional info of deluge characteristics and response threshold ####
+# NOTE: written at the end of 2a (below), after the relative threshold columns have been added
+
+# ## try plotting to check data
+# ### take averages
+# dat<-cont.avs%>%
+#   # subset(Variable=="VWC")%>%
+#   # subset(Variable=="GCC")%>%
+#   subset(Variable=="SR")%>%
+#   group_by(Study_shorthand,year)%>%
+#   mutate(Study_trt=paste0(Study_shorthand,"_",trt),
+#          trt_type=factor(con_vs_trt,levels=c("con","trt"),labels=c("CON","DEL")))
+# 
+# ### make the plot
+# plot<-ggplot(dat,aes(x=date,y=trt.day.av,group=trt,linetype=trt_type,color=Study_trt)) +
+#   geom_line()+
+#   geom_point()+
+#   geom_errorbar(aes(ymin=trt.day.av-trt.day.SE, ymax=trt.day.av+trt.day.SE), width=0.2)+
+#   scale_x_date(date_labels="%b %d") +
+#   labs(
+#     x="Date",
+#     y="VWC",
+#     linetype="Treatment")+
+#   theme_bw()+
+#   theme(legend.position="right")+
+#   force_panelsizes(rows = unit(2.25, "in"),
+#                cols = unit(4.25, "in"))+
+#   facet_wrap(~Study_shorthand + year,scales="free")
+# 
+# plot
+
+```
+
+#### 2. Calculating Response Metrics ********************************************
+######## a. Relative 20% threshold
+```{r 2a relative threshold - daily responses}
+#### settings ####
+# thresh<-0.20 # response = treatment-control difference > 20% of the variable's range
+thresh<-0.10
+#### range for each variable -- calculated across ALL studies, locations, and years ####
+# (min/max of treatment-level daily averages; duplicated controls don't change min/max)
+var.range<-cont.avs%>%
+  group_by(Variable)%>%
+  dplyr::summarise(
+    min.val=min(trt.day.av,na.rm=TRUE),
+    max.val=max(trt.day.av,na.rm=TRUE),
+    var.range=max.val-min.val,
+    .groups="drop")
+var.range
+
+#### put each deluge trt side-by-side with its own control ####
+# deluge trt rows -- add name of the control trt each is paired with
+del.avs<-cont.avs%>%
+  filter(con_vs_trt=="trt",!is.na(del_start))%>%
+  left_join(del.trts%>%select(Study_shorthand,year,trt,con,del_start),
+            by=c("Study_shorthand","year","trt","del_start"))
+
+# control rows (copies already duplicated per deluge trt, so del_size/timing/del_start match their deluge trt)
+con.avs<-cont.avs%>%
+  filter(con_vs_trt=="con",!is.na(del_start))%>%
+  select(Variable,Study_shorthand,year,date,con=trt,del_size,timing,del_start,
+         con.day.av=trt.day.av,con.day.SE=trt.day.SE)
+
+wide.daily.avs<-del.avs%>%
+  left_join(con.avs,
+            by=c("Variable","Study_shorthand","year","date","con","del_size","timing","del_start"))%>%
+  left_join(var.range%>%select(Variable,var.range),by="Variable")%>%
+  # relative difference -- like %difference but divided by range instead of CON
+  mutate(
+    diff=trt.day.av-con.day.av,
+    rel.diff=diff/var.range,
+    response=case_when(
+      is.na(rel.diff) ~ NA_character_, # no paired control measurement that date
+      rel.diff > thresh ~ "positive",
+      rel.diff < -thresh ~ "negative",
+      TRUE ~ "none"))%>%
+  arrange(Variable,Study_shorthand,year,trt,date)
+
+# view(wide.daily.avs)
+
+# check what rows were used as the min/max for each var
+cont.avs%>%
+  group_by(Variable)%>%
+  slice_max(trt.day.av,n=3)%>% # and slice_min for the low end
+  select(Variable,Study_shorthand,year,date,trt,trt.day.av,n.plots.per.date) # all have at least 4 plots per date
+
+#### plot check relative thresholds ####
+# check.var<-"SR"
+# check.var<-"VWC"
+check.var<-"GCC"
+
+plot.dat<-cont.avs%>%
+  filter(Variable==check.var)%>%
+  mutate(Study_trt=paste0(Study_shorthand,"_",trt),
+         trt_type=factor(con_vs_trt,levels=c("con","trt"),labels=c("CON","DEL")))
+
+# 28-day response period shading
+resp_rects<-plot.dat%>%
+  filter(!is.na(del_start),!is.na(resp_28day))%>%
+  distinct(Study_shorthand,year,del_start,resp_28day)
+
+# dates over threshold
+flagged.dates<-wide.daily.avs%>%
+  filter(Variable==check.var,response %in% c("positive","negative"))
+
+thresh.check<-ggplot(plot.dat,aes(x=date,y=trt.day.av,group=trt,linetype=trt_type,color=Study_trt))+
+  geom_rect(data=resp_rects,aes(xmin=del_start,xmax=resp_28day,ymin=-Inf,ymax=Inf),
+            inherit.aes=FALSE,fill="grey80",alpha=0.3)+
+  geom_line()+
+  geom_point()+
+  geom_errorbar(aes(ymin=trt.day.av-trt.day.SE,ymax=trt.day.av+trt.day.SE),width=0.2)+
+  # triangles mark dates over the threshold (up = positive, down = negative)
+  geom_point(data=flagged.dates,aes(x=date,y=trt.day.av,shape=response),
+             inherit.aes=FALSE,color="black",fill="black",size=2.5)+
+  scale_shape_manual(values=c("positive"=24,"negative"=25))+
+  scale_x_date(date_labels="%b %d")+
+  labs(x="Date",y=check.var,linetype="Treatment")+
+  theme_bw()+
+  theme(legend.position="right")+
+  force_panelsizes(rows=unit(2.25,"in"),
+                   cols=unit(4.25,"in"))+
+  facet_wrap(~Study_shorthand+year,scales="free")
+thresh.check
+
+#### *** export continuous_long_dailyavs.csv -- daily treatment averages + deluge info + threshold columns *** ####
+daily.out<-bind_rows(
+  cont.avs%>%
+    filter(con_vs_trt=="trt")%>%
+    left_join(wide.daily.avs%>%
+                select(Variable,Study_shorthand,year,trt,date,del_start,
+                       con,con.day.av,var.range,rel.diff,response),
+              by=c("Variable","Study_shorthand","year","trt","date","del_start")),
+  cont.avs%>%
+    filter(con_vs_trt=="con"))%>%
+  arrange(Variable,Study_shorthand,year,trt,date)
+
+nrow(cont.avs)
+nrow(daily.out) # should match
+
+# write.csv(daily.out,file=file.path("deluge","data","R_exports","continuous_long_dailyavs_thresh10.csv"),row.names=FALSE)
+# 
+# googledrive::drive_upload(media=file.path("deluge","data","R_exports","continuous_long_dailyavs_thresh10.csv"),
+#                           overwrite=T,
+#                           path=googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+```
+
+```{r 2a relative threshold - consecutive response runs and lengths}
+#### only look at paired dates AFTER the deluge started ####
+resp.dat<-wide.daily.avs%>%
+  filter(!is.na(response),date>del_start)%>%
+  arrange(Variable,Study_shorthand,year,trt,date)
+
+#### fill single-day interruptions using previous and next dates ####
+filled.responses<-resp.dat%>%
+  group_by(Variable,Study_shorthand,year,trt)%>%
+  mutate(prev_resp=lag(response),
+         next_resp=lead(response),
+         response.filled=case_when(
+           ## single day with a response, both sides are none -> replace with none
+           response != "none" & prev_resp=="none" & next_resp=="none" ~ "none",
+           ## both sides are positive -> replace with positive
+           response != "positive" & prev_resp=="positive" & next_resp=="positive" ~ "positive",
+           ## both sides are negative -> replace with negative
+           response != "negative" & prev_resp=="negative" & next_resp=="negative" ~ "negative",
+           ## keep all others the same
+           TRUE ~ response))%>%
+  ## identify consecutive runs
+  mutate(run_id=rleid(response.filled))%>%
+  group_by(Variable,Study_shorthand,year,trt,run_id)%>%
+  mutate(run_response=first(response.filled))%>%
+  ungroup()
+
+# view(filled.responses)
+
+#### summary of every positive/negative run ####
+response.runs.summary<-filled.responses%>%
+  # drop any runs of "none"
+  filter(run_response %in% c("positive","negative"))%>%
+  group_by(Variable,Study_shorthand,year,trt,run_id,run_response)%>%
+  dplyr::summarise(
+    run_start=min(date),
+    run_end=max(date),
+    # calendar days (start and end date both counted)
+    n_cal_days=as.numeric(run_end-run_start)+1,
+    # measured dates actually over the threshold (excludes filled single-day gaps)
+    n_days_over_thresh=sum(response==run_response),
+    .groups="drop")%>%
+  # drop single-day responses (edge cases not fixed by the filling rules)
+  filter(n_cal_days>1)
+
+# view(response.runs.summary)
+
+#### one "primary" response run per treatment = the longest run (earliest if tied) ####
+primary.run<-response.runs.summary%>%
+  group_by(Variable,Study_shorthand,year,trt)%>%
+  arrange(desc(n_cal_days),run_start,.by_group=TRUE)%>%
+  mutate(n_runs=n())%>%
+  slice(1)%>%
+  ungroup()%>%
+  rename(new_resp_direction=run_response,
+         new_resp_start=run_start,
+         new_resp_end=run_end,
+         new_resp_length=n_cal_days,
+         new_resp_n_days_over=n_days_over_thresh,
+         new_resp_n_runs=n_runs)%>%
+  select(-run_id)
+
+#### first post-deluge measurement date (and number of paired dates available) ####
+resp.obs<-resp.dat%>%
+  group_by(Variable,Study_shorthand,year,trt)%>%
+  dplyr::summarise(
+    post_del_firstobs_date=min(date),
+    n_paired_obs_post=n(),
+    .groups="drop")
+```
+
+######## b. AUC based on 28-day response period
+```{r 2b AUC over 28-day response period}
+#### helper: trapezoidal AUC between two dates, interpolating onto the boundaries ####
+# returns NA if observations do not cover both boundaries (start and end)
+auc_window<-function(date,y,start,end){
+  d<-as.numeric(date); s<-as.numeric(start); e<-as.numeric(end)
+  keep<-!is.na(y)
+  d<-d[keep]; y<-y[keep]
+  if(length(d)<2 || min(d)>s || max(d)<e) return(NA_real_)
+  o<-order(d); d<-d[o]; y<-y[o]
+  inside<-d>s & d<e
+  x.all<-c(s,d[inside],e)
+  y.all<-c(approx(d,y,xout=s)$y,y[inside],approx(d,y,xout=e)$y)
+  pracma::trapz(x.all,y.all)
+}
+
+#### check studies missing observations before/after the 28-day boundaries ####
+missing.bounds<-cont.avs%>%
+  filter(!is.na(del_start),!is.na(resp_28day))%>%
+  group_by(Variable,Study_shorthand,year,trt,con_vs_trt,del_start,resp_28day)%>%
+  dplyr::summarise(
+    first_date=min(date),
+    last_date=max(date),
+    n=n(),
+    .groups="drop")%>%
+  # observations start after deluge started OR end before the response period ended
+  filter(first_date>del_start | last_date<resp_28day)
+# view(missing.bounds) # these get AUC = NA below
+
+#### AUC for every treatment and control series (deluge start -> 28 days later) ####
+auc.28<-cont.avs%>%
+  filter(!is.na(del_start),!is.na(resp_28day))%>%
+  group_by(Variable,Study_shorthand,year,trt,con_vs_trt,del_size,timing,del_start,del_end,resp_28day)%>%
+  arrange(date,.by_group=TRUE)%>%
+  dplyr::summarise(
+    AUC28=auc_window(date,trt.day.av,del_start[1],resp_28day[1]),
+    .groups="drop")
+
+#### pair each deluge trt with its control ####
+auc28.del<-auc.28%>%
+  filter(con_vs_trt=="trt")%>%
+  left_join(del.trts%>%select(Study_shorthand,year,trt,con,del_start),
+            by=c("Study_shorthand","year","trt","del_start"))%>%
+  rename(AUC28_del=AUC28)
+
+auc28.con<-auc.28%>%
+  filter(con_vs_trt=="con")%>%
+  select(Variable,Study_shorthand,year,con=trt,del_size,timing,del_start,AUC28_con=AUC28)
+
+auc28.diff<-auc28.del%>%
+  left_join(auc28.con,
+            by=c("Variable","Study_shorthand","year","con","del_size","timing","del_start"))%>%
+  mutate(
+    diff_AUC28=AUC28_del-AUC28_con,
+    diff_AUC28_daily=diff_AUC28/28)%>% # average daily response over the 28 days
+  select(Variable,Study_shorthand,year,trt,con,del_size,timing,del_start,del_end,resp_28day,
+         AUC28_del,AUC28_con,diff_AUC28,diff_AUC28_daily)
+
+# view(auc28.diff)
+```
+
+######## c. AUC based on 20% threshold elevated period
+```{r 2c AUC over threshold-elevated period}
+# integrate deluge and control over the primary response run (new_resp_start -> new_resp_end)
+# uses paired measurement dates only, and run start/end are measured dates, so no interpolation needed
+auc.thresh<-primary.run%>%
+  select(Variable,Study_shorthand,year,trt,new_resp_start,new_resp_end)%>%
+  left_join(resp.dat%>%select(Variable,Study_shorthand,year,trt,date,trt.day.av,con.day.av),
+            by=c("Variable","Study_shorthand","year","trt"))%>%
+  filter(date>=new_resp_start,date<=new_resp_end)%>%
+  group_by(Variable,Study_shorthand,year,trt)%>%
+  arrange(date,.by_group=TRUE)%>%
+  dplyr::summarise(
+    AUCthresh_del=pracma::trapz(as.numeric(date),trt.day.av),
+    AUCthresh_con=pracma::trapz(as.numeric(date),con.day.av),
+    span_days=as.numeric(max(date)-min(date)),
+    .groups="drop")%>%
+  mutate(
+    diff_AUCthresh=AUCthresh_del-AUCthresh_con,
+    # average daily response over the elevated period
+    diff_AUCthresh_daily=diff_AUCthresh/span_days)%>%
+  select(-span_days)
+
+# view(auc.thresh)
+```
+
+#### 3. Merge Treatment-Level Data & Responses Metrics
+```{r 3 merge and export}
+# one row per Variable x deluge treatment
+trt.base<-wide.daily.avs%>%
+  distinct(Variable,Study_shorthand,year,trt,con,del_size,timing,del_start,del_end,resp_28day,var.range)
+
+continuous.response.calcs<-trt.base%>%
+  # 28-day AUC's
+  left_join(auc28.diff%>%
+              select(Variable,Study_shorthand,year,trt,del_start,
+                     AUC28_del,AUC28_con,diff_AUC28,diff_AUC28_daily),
+            by=c("Variable","Study_shorthand","year","trt","del_start"))%>%
+  # first post-deluge measurement
+  left_join(resp.obs,by=c("Variable","Study_shorthand","year","trt"))%>%
+  # relative threshold response length
+  left_join(primary.run%>%
+              select(Variable,Study_shorthand,year,trt,new_resp_direction,new_resp_start,new_resp_end,
+                     new_resp_length,new_resp_n_days_over,new_resp_n_runs),
+            by=c("Variable","Study_shorthand","year","trt"))%>%
+  # threshold-period AUC's
+  left_join(auc.thresh,by=c("Variable","Study_shorthand","year","trt"))%>%
+  mutate(
+    # days from first post-deluge measurement to start of the response
+    new_resp_lag_days=as.numeric(new_resp_start-post_del_firstobs_date),
+    # treatments WITH post-deluge paired data but NO run over the threshold = 0 days / 0 AUC (NA if never measured)
+    has_obs=!is.na(post_del_firstobs_date),
+    new_resp_n_runs=if_else(has_obs,coalesce(new_resp_n_runs,0L),NA_integer_),
+    new_resp_length=if_else(has_obs,coalesce(new_resp_length,0),NA_real_),
+    new_resp_n_days_over=if_else(has_obs,coalesce(new_resp_n_days_over,0L),NA_integer_),
+    AUCthresh_del=if_else(has_obs,coalesce(AUCthresh_del,0),NA_real_),
+    AUCthresh_con=if_else(has_obs,coalesce(AUCthresh_con,0),NA_real_),
+    diff_AUCthresh=if_else(has_obs,coalesce(diff_AUCthresh,0),NA_real_))%>%
+  select(Variable,Study_shorthand,year,trt,con,del_size,timing,
+         del_start,del_end,resp_28day,var.range,
+         # 28-day response period
+         AUC28_del,AUC28_con,diff_AUC28,diff_AUC28_daily,
+         # relative 20% threshold response
+         post_del_firstobs_date,n_paired_obs_post,
+         new_resp_direction,new_resp_start,new_resp_end,new_resp_length,
+         new_resp_n_days_over,new_resp_n_runs,new_resp_lag_days,
+         # AUC over threshold-elevated period
+         AUCthresh_del,AUCthresh_con,diff_AUCthresh,diff_AUCthresh_daily)
+
+# checks -- should be one row per Variable x deluge trt
+nrow(trt.base)
+nrow(continuous.response.calcs)
+continuous.response.calcs%>%
+  dplyr::count(Variable,Study_shorthand,year,trt)%>%
+  filter(n>1)
+# view(continuous.response.calcs)
+
+#### *** export continuous_response_calcs.csv *** ####
+# write.csv(continuous.response.calcs,file=file.path("deluge","data","R_exports","continuous_response_calcs_thresh10.csv"),row.names=FALSE)
+# 
+# googledrive::drive_upload(media=file.path("deluge","data","R_exports","continuous_response_calcs_thresh10.csv"),
+#                           overwrite=T,
+#                           path=googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+```
+
+```{r make metadata file for these columns}
+cat(paste0('"', names(continuous.response.calcs), '" ~ "",'), sep = "\n")
+
+metadat<-tibble(column=names(continuous.response.calcs))%>%
+  mutate(
+    description=case_match(column,
+                           "Variable" ~ "GCC, VWC, or SR response variable that calculations correpond to",
+                           "Study_shorthand" ~ "shorthand name",
+                           "year" ~ "study year",
+                           "trt" ~ "deluge treatment name",
+                           "con" ~ "corresponding control treatment name",
+                           "del_size" ~ "deluge size (mm)",
+                           "timing" ~ "deluge timing (early/mid/late/fall)",
+                           "del_start" ~ "date deluage water additions began",
+                           "del_end" ~ "date deluge water addiitons end",
+                           "resp_28day" ~ "date of end of 28-day 'standard' response period",
+                           "var.range" ~ "range for variable response across all studies and years",
+                           "AUC28_del" ~ "AUC of deluge treatment based on 28-day response period",
+                           "AUC28_con" ~ "AUC of control treatment based on 28-day response period",
+                           "diff_AUC28" ~ "AUC28_del - AUC28_con",
+                           "diff_AUC28_daily" ~ "diff_AUC28/28 days",
+                           "post_del_firstobs_date" ~ "date of first measurements after deluge addition",
+                           "n_paired_obs_post" ~ "number of observations post-deluge",
+                           "new_resp_direction" ~ "direction (positive or negative) of primary response run -- longest consecutive days where trt-con/var.range > threshold",
+                           "new_resp_start" ~ "first date of primary response run post-deluge",
+                           "new_resp_end" ~ "end date of primary response run post-deluge (trt-con/var.range < threshold again)",
+                           "new_resp_length" ~ "number of days between new_resp_start and new_resp_end",
+                           "new_resp_n_days_over" ~ "number of observation dates in the new response period that were over the threshold (excludes single dates < threshold in the period)",
+                           "new_resp_n_runs" ~ "total number of response runs - mostly 0 for no response or 1 but theoretically if there was a pause and second response period, this could be 2+",
+                           "new_resp_lag_days" ~ "days between post_del_firstobs_date to new_resp_start",
+                           "AUCthresh_del" ~ "AUC of del trts over each study/year/variable's primary response run",
+                           "AUCthresh_con" ~ "AUC of con trts over each study/year/variable's primary response run",
+                           "diff_AUCthresh" ~ "AUCthresh_del - AUCthresh_con",
+                           "diff_AUCthresh_daily" ~ "diff_AUCthresh/new_resp_length",
+                           
+  ))
+  
+  
+metadat%>%filter(is.na(description)) # all described
+
+#### *** export metadata *** ####
+# meta.file<-file.path("deluge","data","R_exports","continuous_response_calcs_metadata.csv")
+# 
+# # the note that goes on top -- edit as needed
+# note<-paste0("Column descriptions for continuous_response_calcs.csv. Relative response threshold for continuous_response_calcs.csv is 20% (0.2), and any other thresholds checked and exported are added onto file name -- for example - '_thresh10'")
+# 
+# # line 1 = note, line 2 = blank gap row
+# writeLines(c(paste0('"',gsub('"','""',note),'"'),""),meta.file)
+# 
+# # then append the column/description table (with its header) underneath
+# write.table(metadat,file=meta.file,append=TRUE,sep=",",
+#             row.names=FALSE,col.names=TRUE,qmethod="double")
+# 
+# googledrive::drive_upload(media=file.path("deluge","data","R_exports","continuous_response_calcs_metadata.csv"),
+#                           overwrite=T,
+#                           path=googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
+
+
+
+```
+
