@@ -452,14 +452,15 @@ greg <- read.csv(file = file.path("deluge", "precip_data", "greg_ppt_wide.csv"))
            TRUE ~ "CON_DEL"
          )) %>%
   mutate(gs_ppt = m5 + m6 + m7 + m8,
-         ann_ppt = m1 + m2 + m3 + m4 + m5 + m6 + m7 + m8 + m9 + m10 + m11 + m12,
+         ann_ppt = m1 + m2 + m3 + m4 + m5 + m6 + m7 + m8 + m9_prev + m10 + m11 + m12,
          gs_ppt_prev = m5_prev + m6_prev + m7_prev + m8_prev,
          ann_ppt_prev = m1_prev + m2_prev + m3_prev + m4_prev + 
            m5_prev + m6_prev + m7_prev + m8_prev + m9_prev + m10_prev + m11_prev + m12_prev)
 
 ppt.3 <- ppt.2 %>%
   filter(Study != "Tooley et al. DRE") %>%
-  rbind(greg)
+  rbind(greg) %>%
+  mutate(ann_ppt = ifelse(Treatment_raw == "SEP", ann_ppt + 100, ann_ppt))
            
 # save and export
 
