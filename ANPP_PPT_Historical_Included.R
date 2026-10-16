@@ -407,3 +407,6 @@ ggplot(hist.exp, aes(ann_ppt, mean_ANPP, shape = data))+
 # how much of rain falls as a deluge? could look at subtracting out teh deluge amount/proportion that falls as a deluge
 # annual precip and deluge size correlation figure
 
+m <- lm(mean_ANPP ~ ann_ppt * data, data = hist.exp)
+summary(m)
+m <- lm(mean_ANPP ~ ann_ppt + data, data = hist.exp)
