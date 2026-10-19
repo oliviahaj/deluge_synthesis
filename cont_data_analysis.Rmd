@@ -41,7 +41,7 @@ dir.create(file.path("deluge","figures"))
 ```{r read in continuous files - choose 2 to refresh connection}
 drive.files<-googledrive::drive_ls(googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3?usp=drive_link"))
 
-cont.files<-c("GCC_filtered.csv","SR_filtered.csv","VWC_20cm_filtered.csv","deluge_characteristics_mergeable.csv")
+cont.files<-c("GCC_filtered.csv","SR_filtered.csv","VWC_20cm_filtered.csv","deluge_characteristics_mergeable.csv","deluge_trt_keys.csv","continuous_response_calcs.csv","continuous_response_calcs_thresh10.csv")
 
 ## read in each file
 for (i in cont.files){
@@ -53,7 +53,7 @@ file.name<-drive.files %>%
 if(nrow(file.name) == 1){
   googledrive::drive_download(file = file.name$id, 
                               overwrite = T,
-                              path = file.path("deluge", 'data', i))
+                              path = file.path("deluge", 'data', 'R_exports', i))
   
 } else{
   message("File error - check name or if duplicated: ", i)
@@ -64,12 +64,484 @@ if(nrow(file.name) == 1){
 
 ```{r check files}
 #### read in data already averaged to daily scale
+calcs<-read.csv("deluge/data/R_exports/continuous_response_calcs.csv")
+glimpse(calcs)
 
+calcs.10<-read.csv("deluge/data/R_exports/continuous_response_calcs_thresh10.csv")
+glimpse(calcs.10)
 
+#### prep data - responses should be GCC and SR - predictors: size*VWC_AUC + timing (doy) + (1|Year) 
+## filter to what we want to keep
+selected.responses<-calcs%>%
+  select("Variable","Study_shorthand","year","trt","con","del_size","timing","del_start","diff_AUC28","diff_AUC28_daily","new_resp_length","new_resp_lag_days","diff_AUCthresh","diff_AUCthresh_daily")
+glimpse(selected.responses)
 
+selected.responses.10<-calcs.10%>%
+  select("Variable","Study_shorthand","year","trt","con","del_size","timing","del_start","diff_AUC28","diff_AUC28_daily","new_resp_length","new_resp_lag_days","diff_AUCthresh","diff_AUCthresh_daily")
+glimpse(selected.responses.10)
 
+## pivot wider for making regressions
+resp.dat<-selected.responses%>%
+  pivot_wider(
+    id_cols=c(Study_shorthand, year, trt, con, del_size, timing, del_start),
+    names_from=Variable,
+    values_from=c(starts_with("diff_AUC"), new_resp_length, new_resp_lag_days),
+    names_glue="{Variable}_{.value}")%>%
+  mutate(del_start=as.Date(del_start,format="%Y-%m-%d"),
+         doy=yday(del_start))
 
+glimpse(resp.dat)
+# view(resp.dat)
+
+resp.dat.10<-selected.responses.10%>%
+  pivot_wider(
+    id_cols=c(Study_shorthand, year, trt, con, del_size, timing, del_start),
+    names_from=Variable,
+    values_from=c(starts_with("diff_AUC"), new_resp_length, new_resp_lag_days),
+    names_glue="{Variable}_{.value}")%>%
+  mutate(del_start=as.Date(del_start,format="%Y-%m-%d"),
+         doy=yday(del_start))
+
+glimpse(resp.dat.10)
+# view(resp.dat.10)
+
+#### filtered to 60mm deluges only
+resp.dat.60<-resp.dat%>%
+  filter(del_size==60)
+
+resp.dat.10.60<-resp.dat.10%>%
+  filter(del_size==60)
+
+#### summary tables
+resp.avs.gs<-selected.responses%>%
+  filter(!timing=="fall")%>%
+  group_by(Variable)%>%
+  dplyr::summarise(
+    n.studies=n(),
+    AUC_28_daily=mean(diff_AUC28_daily,na.rm=TRUE),
+    AUC_28_SE=(sd(diff_AUC28_daily,na.rm=TRUE)/sqrt(n.studies)),
+    elevated_20perc_length=mean(new_resp_length,na.rm=TRUE),
+    el_20perc_SE=(sd(new_resp_length,na.rm=TRUE)/sqrt(n.studies)),
+    AUC_el_period_daily=mean(diff_AUCthresh_daily,na.rm=TRUE),
+    AUC_el_period_SE=(sd(diff_AUCthresh_daily,na.rm=TRUE)/sqrt(n.studies)),
+    lag_days=mean(new_resp_lag_days,na.rm=TRUE),
+    lag_SE=(sd(new_resp_lag_days,na.rm=TRUE)))
+
+resp.avs.gs.10<-selected.responses.10%>%
+  filter(!timing=="fall")%>%
+  group_by(Variable)%>%
+  dplyr::summarise(
+    n.studies=n(),
+    AUC_28_daily=mean(diff_AUC28_daily,na.rm=TRUE),
+    AUC_28_SE=(sd(diff_AUC28_daily,na.rm=TRUE)/sqrt(n.studies)),
+    elevated_20perc_length=mean(new_resp_length,na.rm=TRUE),
+    el_20perc_SE=(sd(new_resp_length,na.rm=TRUE)/sqrt(n.studies)),
+    AUC_el_period_daily=mean(diff_AUCthresh_daily,na.rm=TRUE),
+    AUC_el_period_SE=(sd(diff_AUCthresh_daily,na.rm=TRUE)/sqrt(n.studies)),
+    lag_days=mean(new_resp_lag_days,na.rm=TRUE),
+    lag_SE=(sd(new_resp_lag_days,na.rm=TRUE))
+  )
+
+resp.avs.fall<-selected.responses%>%
+  filter(timing=="fall")%>%
+  group_by(Variable)%>%
+  dplyr::summarise(
+    n.studies=n(),
+    AUC_28_daily=mean(diff_AUC28_daily,na.rm=TRUE),
+    AUC_28_SE=(sd(diff_AUC28_daily,na.rm=TRUE)/sqrt(n.studies)),
+    elevated_20perc_length=mean(new_resp_length,na.rm=TRUE),
+    el_20perc_SE=(sd(new_resp_length,na.rm=TRUE)/sqrt(n.studies)),
+    AUC_el_period_daily=mean(diff_AUCthresh_daily,na.rm=TRUE),
+    AUC_el_period_SE=(sd(diff_AUCthresh_daily,na.rm=TRUE)/sqrt(n.studies)),
+    lag_days=mean(new_resp_lag_days,na.rm=TRUE),
+    lag_SE=(sd(new_resp_lag_days,na.rm=TRUE)))
+
+resp.avs.fall.10<-selected.responses.10%>%
+  filter(timing=="fall")%>%
+  group_by(Variable)%>%
+  dplyr::summarise(
+    n.studies=n(),
+    AUC_28_daily=mean(diff_AUC28_daily,na.rm=TRUE),
+    AUC_28_SE=(sd(diff_AUC28_daily,na.rm=TRUE)/sqrt(n.studies)),
+    elevated_20perc_length=mean(new_resp_length,na.rm=TRUE),
+    el_20perc_SE=(sd(new_resp_length,na.rm=TRUE)/sqrt(n.studies)),
+    AUC_el_period_daily=mean(diff_AUCthresh_daily,na.rm=TRUE),
+    AUC_el_period_SE=(sd(diff_AUCthresh_daily,na.rm=TRUE)/sqrt(n.studies)),
+    lag_days=mean(new_resp_lag_days,na.rm=TRUE),
+    lag_SE=(sd(new_resp_lag_days,na.rm=TRUE))
+  )
+
+### *** export continuous_response_calcs.csv *** ####
+# dat<-resp.avs.gs
+# name<-"cont_responses_gs_summary.csv"
+
+# dat<-resp.avs.gs.10
+# name<-"cont_responses_gs_summary_thresh10.csv"
+
+# dat<-resp.avs.fall
+# name<-"cont_responses_fall_summary.csv"
+
+# dat<-resp.avs.fall.10
+# name<-"cont_responses_fall_summary_thresh10.csv"
+
+# write.csv(dat,file=file.path("deluge","data","R_exports",name),row.names=FALSE)
+# 
+# googledrive::drive_upload(media=file.path("deluge","data","R_exports",name),
+#                           overwrite=T,
+#                           path=googledrive::as_id("https://drive.google.com/drive/folders/1dmzGwkGC1Y4uWW8nLXDkhtB_4A4suyF3"))
 
 
 ```
 
+Linear regressions for each response (normalized) ~ deluge size, timing (early/mid/late/fall), timing (deluge addition days relative to peak GCC?)
+- Responses:
+  - Length: number of days of response (over threshold – relalive 20%) 
+  - Magnitude: AUC of whole length for each study (instead of 28 day response periods) + explanatory variable as length of response 
+  - Relative response/pulses: AUC divided by # of days of response
+Just do these responses for SR and GCC, including VWC as an explanatory variable -- GCC AUC from threshold all 0
+
+Models (for SR and GCC):
+- Length_days ~ size*VWC_AUC + timing (doy (or relative to peak GCC)) + (1|Year)
+- AUC_with_length ~ size*VWC_AUC + timing + (1|Year)
+- Standardized_AUC ~ size*VWC_AUC + timing + (1|Year)
+
+Do with and without fall deluges? 
+Do with and without Mary’s data – check to see how influential it is
+
+#### response ~ size*VWC + timing + (1|year)
+```{r length}
+### GCC -- no responses over threshold (use 28 day period only)
+### SR **********
+mod<-lmer(SR_new_resp_length~del_size*VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(SR_new_resp_length~del_size+VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # size 0.0013, timing 0.055885
+
+### SR - doy ************
+mod<-lmer(SR_new_resp_length~del_size*VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(SR_new_resp_length~del_size+VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # size 0.0002, doy 0.002
+
+### SR - 60mm only *********
+mod<-lmer(SR_new_resp_length~VWC_diff_AUC28+(1|year),data=resp.dat.60)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # not sig
+
+### SR - doy
+mod<-lmer(SR_new_resp_length~VWC_diff_AUC28+doy+(1|year),data=resp.dat.60)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # none sig
+```
+
+```{r 28-day period}
+### GCC ************************************************
+resp<-resp.dat$GCC_diff_AUC28
+mod<-lmer(resp~del_size*VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # timing 0.03
+
+### GCC - doy ************
+mod<-lmer(resp~del_size*VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # doy 0.0344
+
+# ### GCC - 60mm only *********
+# mod<-lmer(resp~VWC_diff_AUC28+(1|year),data=resp.dat.60) ## *** variable lengths differ error
+# plot(mod)
+# qqnorm(resid(mod));qqline(resid(mod))
+# anova(mod,ddf="Kenward-Roger") # not sig
+# 
+# ### GCC - doy
+# mod<-lmer(resp~VWC_diff_AUC28+doy+(1|year),data=resp.dat.60)
+# plot(mod)
+# qqnorm(resid(mod));qqline(resid(mod))
+# anova(mod,ddf="Kenward-Roger") # none sig
+
+
+### SR ************************************************
+resp<-resp.dat$SR_diff_AUC28
+mod<-lmer(resp~del_size*VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # size 0.01
+
+### SR - doy ************
+mod<-lmer(resp~del_size*VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # size 0.0002, doy 0.012
+
+# ### SR - 60mm only *********
+# mod<-lmer(resp~VWC_diff_AUC28+(1|year),data=resp.dat.60) ## *** variable lengths differ error 
+# plot(mod)
+# qqnorm(resid(mod));qqline(resid(mod))
+# anova(mod,ddf="Kenward-Roger") # not sig
+# 
+# ### SR - doy
+# mod<-lmer(resp~VWC_diff_AUC28+doy+(1|year),data=resp.dat.60)
+# plot(mod)
+# qqnorm(resid(mod));qqline(resid(mod))
+# anova(mod,ddf="Kenward-Roger") # none sig
+```
+
+```{r threshold AUC}
+### GCC ************************************************
+# none over threshold
+
+### SR ************************************************
+resp<-resp.dat$SR_diff_AUCthresh
+mod<-lmer(resp~del_size*VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # size 0.0006, timing 0.057
+
+### SR - doy ************
+mod<-lmer(resp~del_size*VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # size 0.0005, doy 0.013
+
+# ### SR - 60mm only *********
+# mod<-lmer(resp~VWC_diff_AUC28+(1|year),data=resp.dat.60) ## *** variable lengths differ error
+# plot(mod)
+# qqnorm(resid(mod));qqline(resid(mod))
+# anova(mod,ddf="Kenward-Roger") # not sig
+# 
+# ### SR - doy
+# mod<-lmer(resp~VWC_diff_AUC28+doy+(1|year),data=resp.dat.60)
+# plot(mod)
+# qqnorm(resid(mod));qqline(resid(mod))
+# anova(mod,ddf="Kenward-Roger") # none sig
+
+### SR (daily -- warnings) ************************************************
+resp<-resp.dat$SR_diff_AUCthresh_daily
+mod<-lmer(resp~del_size*VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # none
+
+### SR - doy ************
+mod<-lmer(resp~del_size*VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # none
+
+```
+
+#### no random effect
+```{r length}
+### GCC -- no responses over threshold (use 28 day period only)
+### SR **********
+mod<-lm(SR_new_resp_length~del_size*VWC_diff_AUC28+as.factor(timing),data=resp.dat)
+plot(mod,1)
+plot(mod,2)
+Anova(mod,type=3) # drop interaction
+
+mod.ni<-lm(SR_new_resp_length~del_size+VWC_diff_AUC28+as.factor(timing),data=resp.dat)
+plot(mod.ni,1)
+plot(mod.ni,2)
+Anova(mod.ni,type=3) # size 0.0015, timing 0.02
+
+### SR - doy ************
+mod<-lm(SR_new_resp_length~del_size*VWC_diff_AUC28+doy,data=resp.dat)
+plot(mod,1)
+plot(mod,2)
+Anova(mod,type=3)
+
+mod.ni<-lm(SR_new_resp_length~del_size+VWC_diff_AUC28+doy,data=resp.dat)
+plot(mod.ni,1)
+plot(mod.ni,2)
+Anova(mod.ni,type=3) # size 0.00006, doy 0.003
+
+```
+
+```{r 28-day period -- not updated yet}
+### GCC ************************************************
+resp<-resp.dat$GCC_diff_AUC28
+mod<-lmer(resp~del_size*VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # timing 0.03
+
+### GCC - doy ************
+mod<-lmer(resp~del_size*VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # doy 0.0344
+
+# ### GCC - 60mm only *********
+# mod<-lmer(resp~VWC_diff_AUC28+(1|year),data=resp.dat.60) ## *** variable lengths differ error
+# plot(mod)
+# qqnorm(resid(mod));qqline(resid(mod))
+# anova(mod,ddf="Kenward-Roger") # not sig
+# 
+# ### GCC - doy
+# mod<-lmer(resp~VWC_diff_AUC28+doy+(1|year),data=resp.dat.60)
+# plot(mod)
+# qqnorm(resid(mod));qqline(resid(mod))
+# anova(mod,ddf="Kenward-Roger") # none sig
+
+### SR ************************************************
+resp<-resp.dat$SR_diff_AUC28
+mod<-lmer(resp~del_size*VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # size 0.01
+
+### SR - doy ************
+mod<-lmer(resp~del_size*VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # size 0.0002, doy 0.012
+
+# ### SR - 60mm only *********
+# mod<-lmer(resp~VWC_diff_AUC28+(1|year),data=resp.dat.60) ## *** variable lengths differ error 
+# plot(mod)
+# qqnorm(resid(mod));qqline(resid(mod))
+# anova(mod,ddf="Kenward-Roger") # not sig
+# 
+# ### SR - doy
+# mod<-lmer(resp~VWC_diff_AUC28+doy+(1|year),data=resp.dat.60)
+# plot(mod)
+# qqnorm(resid(mod));qqline(resid(mod))
+# anova(mod,ddf="Kenward-Roger") # none sig
+```
+
+```{r threshold AUC - not updated yet}
+### GCC ************************************************
+# none over threshold
+
+### SR ************************************************
+resp<-resp.dat$SR_diff_AUCthresh
+mod<-lmer(resp~del_size*VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # size 0.0006, timing 0.057
+
+### SR - doy ************
+mod<-lmer(resp~del_size*VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # size 0.0005, doy 0.013
+
+# ### SR - 60mm only *********
+# mod<-lmer(resp~VWC_diff_AUC28+(1|year),data=resp.dat.60) ## *** variable lengths differ error
+# plot(mod)
+# qqnorm(resid(mod));qqline(resid(mod))
+# anova(mod,ddf="Kenward-Roger") # not sig
+# 
+# ### SR - doy
+# mod<-lmer(resp~VWC_diff_AUC28+doy+(1|year),data=resp.dat.60)
+# plot(mod)
+# qqnorm(resid(mod));qqline(resid(mod))
+# anova(mod,ddf="Kenward-Roger") # none sig
+
+### SR (daily -- warnings) ************************************************
+resp<-resp.dat$SR_diff_AUCthresh_daily
+mod<-lmer(resp~del_size*VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+as.factor(timing)+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # none
+
+### SR - doy ************
+mod<-lmer(resp~del_size*VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod)
+qqnorm(resid(mod));qqline(resid(mod))
+anova(mod,ddf="Kenward-Roger") # drop interaction
+
+mod.ni<-lmer(resp~del_size+VWC_diff_AUC28+doy+(1|year),data=resp.dat)
+plot(mod.ni)
+qqnorm(resid(mod.ni));qqline(resid(mod.ni))
+anova(mod.ni,ddf="Kenward-Roger") # none
+
+```
