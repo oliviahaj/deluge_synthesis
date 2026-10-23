@@ -410,3 +410,23 @@ ggplot(hist.exp, aes(ann_ppt, mean_ANPP, shape = data))+
 m <- lm(mean_ANPP ~ ann_ppt * data, data = hist.exp)
 summary(m)
 m <- lm(mean_ANPP ~ ann_ppt + data, data = hist.exp)
+
+
+# Look at slope just based on deluge size, if greater than x in the hist
+glimpse(hist)
+
+hist.2 <- hist %>%
+  mutate(deluge_pres = ifelse(del_size > 50, "DEL", "RAIN"))
+  
+ggplot(hist.2, aes(ann_ppt, mean_ANPP, color = deluge_pres))+
+  geom_smooth(aes(linetype = data), method = "lm", se = F) +
+  geom_point(size = 3)+
+  # scale_color_viridis_c(option = "mako", direction = -1, end = 0.9,
+  #                       limits = c(NA, quantile(anpp.ppt$total_precip, 0.95, na.rm = TRUE)),
+  #                       oob = scales::squish) +
+  theme_bw(base_size = 16)+
+  theme(panel.grid = element_blank()) +
+  xlab("Water-Year PPT (mm)")+
+  ylab("ANPP")
+
+# try this with number of deluge and timing
