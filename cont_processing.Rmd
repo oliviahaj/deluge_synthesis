@@ -83,8 +83,8 @@ tapply(GCC$year, GCC$Study_shorthand, unique)
 
 GCC.dat<-GCC%>%
   mutate(var=as.numeric(GCC))%>%
-  filter(!Study_shorthand=="Linabury_ChANGE") #%>% # drop Mary
-  # filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
+  # filter(!Study_shorthand=="Linabury_ChANGE") #%>% # drop Mary
+  filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
 
 GCC.na<-GCC.dat%>%
   filter(is.na(var))
@@ -104,8 +104,8 @@ tapply(VWC$year, VWC$Study_shorthand, unique)
 
 VWC.dat<-VWC%>%
   mutate(var=as.numeric(VWC))%>%
-  filter(!Study_shorthand=="Linabury_ChANGE") #%>% # drop Mary 
-  # filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
+  # filter(!Study_shorthand=="Linabury_ChANGE") #%>% # drop Mary
+  filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
 
 VWC.na<-VWC.dat%>%
   filter(is.na(var))
@@ -115,7 +115,9 @@ VWC.na<-VWC.dat%>%
 ggplot(VWC.dat, aes(date, var))+
   geom_point()+
   theme_bw()+
-  facet_wrap(~Study_shorthand, scales="free") # OK- nothing looks too unreasonable
+  facet_wrap(~Study_shorthand,
+             scales="free_x"
+             ) # OK- nothing looks too unreasonable
 
 # check 
 tapply(VWC$year, VWC$Study_shorthand, unique)
@@ -124,8 +126,8 @@ tapply(VWC$year, VWC$Study_shorthand, unique)
 tapply(SR$year, SR$Study_shorthand, unique)
 
 SR.dat<-SR%>%
-  mutate(var=as.numeric(efflux))# %>%
-  # filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
+  mutate(var=as.numeric(efflux))%>%
+  filter(!(Study_shorthand=="Tooley_DRE" & trt %in% c("DR","DR_DEL"))) # only keep Greg's control (non-drought legacy) plots
 
 SR.na<-SR.dat%>%
   filter(is.na(var))
@@ -278,14 +280,16 @@ cont.avs<-all.continuous%>%
 ######## a. Relative 20% threshold
 ```{r 2a relative threshold - daily responses}
 #### settings ####
-# thresh<-0.20 # response = treatment-control difference > 20% of the variable's range
-thresh<-0.10
+thresh<-0.20 # response = treatment-control difference > 20% of the variable's range
+# thresh<-0.10
 #### range for each variable -- calculated across ALL studies, locations, and years ####
 # (min/max of treatment-level daily averages; duplicated controls don't change min/max)
 var.range<-cont.avs%>%
-  group_by(Variable)%>%
+  group_by(Variable,
+           Study_shorthand
+           )%>%
   dplyr::summarise(
-    min.val=min(trt.day.av,na.rm=TRUE),
+    min.val=min(trt.day.av,na.rm=TRUE), ## fix to take min/max of trt or control
     max.val=max(trt.day.av,na.rm=TRUE),
     var.range=max.val-min.val,
     .groups="drop")
@@ -294,13 +298,13 @@ var.range
 #### put each deluge trt side-by-side with its own control ####
 # deluge trt rows -- add name of the control trt each is paired with
 del.avs<-cont.avs%>%
-  filter(con_vs_trt=="trt",!is.na(del_start))%>%
+  filter(con_vs_trt=="trt")%>%
   left_join(del.trts%>%select(Study_shorthand,year,trt,con,del_start),
             by=c("Study_shorthand","year","trt","del_start"))
 
 # control rows (copies already duplicated per deluge trt, so del_size/timing/del_start match their deluge trt)
 con.avs<-cont.avs%>%
-  filter(con_vs_trt=="con",!is.na(del_start))%>%
+  filter(con_vs_trt=="con")%>%
   select(Variable,Study_shorthand,year,date,con=trt,del_size,timing,del_start,
          con.day.av=trt.day.av,con.day.SE=trt.day.SE)
 
@@ -323,8 +327,8 @@ wide.daily.avs<-del.avs%>%
 
 # check what rows were used as the min/max for each var
 cont.avs%>%
-  group_by(Variable)%>%
-  slice_max(trt.day.av,n=3)%>% # and slice_min for the low end
+  group_by(Variable,Study_shorthand)%>%
+  slice_min(trt.day.av,n=1)%>% # and slice_min for the low end
   select(Variable,Study_shorthand,year,date,trt,trt.day.av,n.plots.per.date) # all have at least 4 plots per date
 
 #### plot check relative thresholds ####
